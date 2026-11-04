@@ -1,0 +1,115 @@
+[project]
+name = "fris"
+version = "0.1.0"
+description = "Financial Research Intelligence System - multi-agent financial research architecture"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [
+    { name = "Statcher Jean", email = "statcherjean@gmail.com" },
+]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "httpx>=0.28.1,<1.0.0",
+    "pydantic>=2.13.0,<3.0.0",
+    "pydantic-settings>=2.0.0,<3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0,<9.0.0",
+    "pytest-asyncio>=0.23.0,<1.0.0",
+    "ruff>=0.9.0,<1.0.0",
+    "mypy>=1.10.0,<2.0.0",
+]
+
+[project.urls]
+Documentation = "https://github.com/statcherjean/financial-research-intelligence#readme"
+Repository = "https://github.com/statcherjean/financial-research-intelligence.git"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/fris/__init__.py"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+indent-width = 4
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fris"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+show_error_codes = true
+namespace_packages = true
+mypy_path = ["src"]
+
+[[tool.mypy.overrides]]
+module = ["fris.*", "tests.*"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+# No additional plugins needed
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**.py" = ["S101"]  # assert allowed in tests
+"__init__.py" = ["F401"]  # unused imports OK in __init__.py
+
+[tool.coverage.run]
+source = ["fris"]
+branch = true
+omit = ["tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "...",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+python_files = "tests/**/test_*.py"
+
