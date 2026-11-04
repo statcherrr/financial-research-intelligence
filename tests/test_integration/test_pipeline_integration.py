@@ -17,15 +17,13 @@ from __future__ import annotations
 import pytest
 
 from src.fris.agents.industry import IndustryAnalyst
-from src.fris.synthesis import ResearchSynthesizer
 from src.fris.retrieval.edgar_retriever import EdgarRetriever
+from src.fris.synthesis import ResearchSynthesizer
 from src.fris.verification.citation_verifier import (
     CitationVerifier,
-    VerificationOutcome,
     EvidenceReference,
-    ClaimVerification,
+    VerificationOutcome,
 )
-
 
 # ============================================================================
 # Test Data — Synthetic specialist reports
@@ -78,7 +76,7 @@ def make_fundamentals_report(ticker: str = "AAPL") -> dict:
 
 def make_industry_report(ticker: str = "AAPL") -> dict:
     """Create an IndustryAnalyst-style report with traceable evidence."""
-    cik = KNOWN_TICKER_MAP.get(ticker, {}).get("cik", 320193)
+    KNOWN_TICKER_MAP.get(ticker, {}).get("cik", 320193)
 
     return {
         "company_ticker": ticker,
@@ -162,7 +160,11 @@ class TestPipelineSuccessScenario:
         seen = set()
         unique_refs = []
         for ref in refs:
-            key = (ref.original_specialist, ref.original_claim[:50]) if ref.original_claim and ref.original_specialist else ("", "")
+            key = (
+                (ref.original_specialist, ref.original_claim[:50])
+                if ref.original_claim and ref.original_specialist
+                else ("", "")
+            )
             if key not in seen:
                 seen.add(key)
                 unique_refs.append(ref)
@@ -387,21 +389,27 @@ class TestRegressionSuitesPass:
     def test_citation_verifier_suite(self):
         """Import and verify citation verifier test suite structure."""
         from tests.test_verification.test_citation_verifier import (
+            TestCitationVerifierNetworkAuthorization,
+            TestContradictionAndInterpretation,
             TestDeterministicHelpers,
             TestEvidenceReferenceValidation,
-            TestCitationVerifierNetworkAuthorization,
-            TestVerificationScenarios,
-            TestValidationScenarios,
-            TestReadOnlyBehavior,
             TestNumericalClaimHandling,
-            TestContradictionAndInterpretation,
+            TestReadOnlyBehavior,
+            TestValidationScenarios,
+            TestVerificationScenarios,
         )
+
         # Just verify the classes are importable and have tests
         assert hasattr(TestDeterministicHelpers, "test_evidence_contains_claim")
-        assert hasattr(TestEvidenceReferenceValidation, "test_evidence_reference_missing_specialist_raises")
+        assert hasattr(
+            TestEvidenceReferenceValidation, "test_evidence_reference_missing_specialist_raises"
+        )
         assert hasattr(TestCitationVerifierNetworkAuthorization, "test_verifier_offline_default")
         assert hasattr(TestVerificationScenarios, "test_behavioral_scenarios")
-        assert hasattr(TestValidationScenarios, "test_evidence_reference_without_specialist_raises_validation_error")
+        assert hasattr(
+            TestValidationScenarios,
+            "test_evidence_reference_without_specialist_raises_validation_error",
+        )
         assert hasattr(TestReadOnlyBehavior, "test_verify_does_not_modify_input")
         assert hasattr(TestNumericalClaimHandling, "test_numerical_claim_exact_match")
         assert hasattr(TestContradictionAndInterpretation, "test_possible_contradiction_negation")
@@ -413,12 +421,20 @@ class TestRegressionSuitesPass:
             TestIndustryAnalystNetworkAuthorization,
             TestResearchOrchestratorNetworkAuthorization,
         )
-        assert hasattr(TestFundamentalsAnalystNetworkAuthorization, "test_default_construction_zero_requests")
-        assert hasattr(TestIndustryAnalystNetworkAuthorization, "test_default_construction_zero_requests")
-        assert hasattr(TestResearchOrchestratorNetworkAuthorization, "test_default_orchestrator_zero_requests")
+
+        assert hasattr(
+            TestFundamentalsAnalystNetworkAuthorization, "test_default_construction_zero_requests"
+        )
+        assert hasattr(
+            TestIndustryAnalystNetworkAuthorization, "test_default_construction_zero_requests"
+        )
+        assert hasattr(
+            TestResearchOrchestratorNetworkAuthorization, "test_default_orchestrator_zero_requests"
+        )
 
 
 # Run all integration tests when this module is invoked
 if __name__ == "__main__":
     import sys
+
     sys.exit(pytest.main([__file__, "-v"]))

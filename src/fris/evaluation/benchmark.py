@@ -6,9 +6,8 @@ Support future tickers and research questions.
 
 from __future__ import annotations
 
-from typing import Any, Optional, List, Dict
-
 from pydantic import BaseModel, Field
+
 
 class BenchmarkCase(BaseModel):
     """A benchmark case defining the inputs and expected criteria."""
@@ -16,22 +15,20 @@ class BenchmarkCase(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
     ticker: str = Field(..., description="Company ticker symbol")
-    research_question: str = Field(
-        ..., description="The research question asked"
-    )
+    research_question: str = Field(..., description="The research question asked")
     scope: str = Field(
         default="full", description="Research scope: full, fundamentals_only, industry_only"
     )
     approved_source_materials: str = Field(
         default="", description="Description of approved source materials"
     )
-    evaluation_criteria: List[str] = Field(
+    evaluation_criteria: list[str] = Field(
         default_factory=list, description="List of evaluation criteria to assess"
     )
-    reference_facts: List[str] = Field(
+    reference_facts: list[str] = Field(
         default_factory=list, description="Independently verified reference facts"
     )
-    subjective_judgments: List[str] = Field(
+    subjective_judgments: list[str] = Field(
         default_factory=list, description="Subjective expert judgments"
     )
 
@@ -67,7 +64,7 @@ NVDA_BENCHMARK = BenchmarkCase(
 class BenchmarkDataset(BaseModel):
     """Collection of benchmark cases."""
 
-    cases: Dict[str, BenchmarkCase] = Field(
+    cases: dict[str, BenchmarkCase] = Field(
         default_factory=dict, description="Benchmark cases keyed by ticker"
     )
     version: str = Field(default="v1.0", description="Dataset version")
@@ -79,7 +76,7 @@ class BenchmarkDataset(BaseModel):
         """Add a benchmark case, keyed by ticker."""
         self.cases[case.ticker] = case
 
-    def get_case(self, ticker: str) -> Optional[BenchmarkCase]:
+    def get_case(self, ticker: str) -> BenchmarkCase | None:
         """Get a benchmark case by ticker."""
         return self.cases.get(ticker)
 
@@ -87,6 +84,6 @@ class BenchmarkDataset(BaseModel):
         """Check if a benchmark case exists for the given ticker."""
         return ticker in self.cases
 
-    def list_tickers(self) -> List[str]:
+    def list_tickers(self) -> list[str]:
         """List all tickers in the benchmark dataset."""
         return list(self.cases.keys())

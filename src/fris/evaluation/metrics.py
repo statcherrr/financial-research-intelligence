@@ -6,8 +6,6 @@ across experiment trials.
 
 from __future__ import annotations
 
-from typing import Any, Optional, List, Dict
-
 from pydantic import BaseModel, Field
 
 
@@ -15,30 +13,24 @@ class TrialMetric(BaseModel):
     """Metrics from a single trial."""
 
     trial_number: int = Field(..., description="Trial number")
-    quality: Dict[str, float] = Field(
+    quality: dict[str, float] = Field(
         default_factory=dict, description="Quality dimension scores: {dimension_name: score}"
     )
-    efficiency: Dict[str, float] = Field(
+    efficiency: dict[str, float] = Field(
         default_factory=dict, description="Efficiency dimension scores: {dimension_name: score}"
     )
-    token_usage: Optional[Dict[str, int]] = Field(
+    token_usage: dict[str, int] | None = Field(
         default=None, description="Token usage: {prompt, completion, total}"
     )
-    estimated_cost: Optional[float] = Field(
-        default=None, description="Estimated monetary cost"
-    )
-    retrieval_status: str = Field(
-        default="none", description="EDGAR retrieval status"
-    )
+    estimated_cost: float | None = Field(default=None, description="Estimated monetary cost")
+    retrieval_status: str = Field(default="none", description="EDGAR retrieval status")
     verification_outcome: str = Field(
         default="unverifiable", description="Citation verification outcome"
     )
     execution_success: bool = Field(
         default=True, description="Whether the trial executed successfully"
     )
-    failure_reason: Optional[str] = Field(
-        default=None, description="Reason if trial failed"
-    )
+    failure_reason: str | None = Field(default=None, description="Reason if trial failed")
 
 
 class ExperimentMetrics(BaseModel):
@@ -48,36 +40,34 @@ class ExperimentMetrics(BaseModel):
     trial_count: int = Field(default=0, description="Number of trials run")
     completed_trials: int = Field(default=0, description="Number of successful trials")
     failed_trials: int = Field(default=0, description="Number of failed trials")
-    per_trial_metrics: List[TrialMetric] = Field(
+    per_trial_metrics: list[TrialMetric] = Field(
         default_factory=list, description="Per-trial metric records"
     )
 
     @property
-    def quality_aggregates(self) -> Dict[str, float]:
+    def quality_aggregates(self) -> dict[str, float]:
         """Compute average quality scores from per-trial metrics."""
-        dim_scores: Dict[str, List[float]] = {}
+        dim_scores: dict[str, list[float]] = {}
         for t in self.per_trial_metrics:
             for dim_name, score in t.quality.items():
                 if dim_name not in dim_scores:
                     dim_scores[dim_name] = []
                 dim_scores[dim_name].append(score)
         return {
-            dim: sum(scores) / len(scores) if scores else 0.0
-            for dim, scores in dim_scores.items()
+            dim: sum(scores) / len(scores) if scores else 0.0 for dim, scores in dim_scores.items()
         }
 
     @property
-    def efficiency_aggregates(self) -> Dict[str, float]:
+    def efficiency_aggregates(self) -> dict[str, float]:
         """Compute average efficiency scores from per-trial metrics."""
-        dim_scores: Dict[str, List[float]] = {}
+        dim_scores: dict[str, list[float]] = {}
         for t in self.per_trial_metrics:
             for dim_name, score in t.efficiency.items():
                 if dim_name not in dim_scores:
                     dim_scores[dim_name] = []
                 dim_scores[dim_name].append(score)
         return {
-            dim: sum(scores) / len(scores) if scores else 0.0
-            for dim, scores in dim_scores.items()
+            dim: sum(scores) / len(scores) if scores else 0.0 for dim, scores in dim_scores.items()
         }
 
     def add_trial(self, trial_metric: TrialMetric) -> None:
@@ -89,23 +79,23 @@ class ExperimentMetrics(BaseModel):
         else:
             self.failed_trials += 1
 
-    def get_average_quality(self, dimension_name: str) -> Optional[float]:
+    def get_average_quality(self, dimension_name: str) -> float | None:
         """Get average quality score for a dimension."""
         scores = [
-            t.quality.get(dim_name)
+            t.quality.get(dimension_name)
             for t in self.per_trial_metrics
-            if t.quality.get(dim_name) is not None
+            if t.quality.get(dimension_name) is not None
         ]
         if not scores:
             return None
         return sum(scores) / len(scores)
 
-    def get_average_efficiency(self, dimension_name: str) -> Optional[float]:
+    def get_average_efficiency(self, dimension_name: str) -> float | None:
         """Get average efficiency score for a dimension."""
         scores = [
-            t.efficiency.get(dim_name)
+            t.efficiency.get(dimension_name)
             for t in self.per_trial_metrics
-            if t.efficiency.get(dim_name) is not None
+            if t.efficiency.get(dimension_name) is not None
         ]
         if not scores:
             return None

@@ -20,9 +20,7 @@ Design principles (Milestone 6.2):
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
-from enum import Enum
-from typing import Any, Optional
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
@@ -45,7 +43,8 @@ __all__ = [
 # Enumerations
 # ---------------------------------------------------------------------------
 
-class VerificationOutcome(str, Enum):
+
+class VerificationOutcome(StrEnum):
     """Five-valued verification outcome taxonomy."""
 
     supported = "supported"
@@ -58,6 +57,7 @@ class VerificationOutcome(str, Enum):
 # ---------------------------------------------------------------------------
 # EvidenceReference — structured provenance reference
 # ---------------------------------------------------------------------------
+
 
 class EvidenceReference(BaseModel):
     """Structured reference to the original evidence supporting a synthesized finding.
@@ -85,27 +85,27 @@ class EvidenceReference(BaseModel):
         ...,
         description="The exact claim text as it appeared in the source specialist's report",
     )
-    evidence_text: Optional[str] = Field(
+    evidence_text: str | None = Field(
         default=None,
         description="Supporting evidence text from the SEC filing, if available",
     )
-    source_url: Optional[str] = Field(
+    source_url: str | None = Field(
         default=None,
         description="URL where the evidence was sourced (SEC filing URL, etc.)",
     )
-    filing_type: Optional[str] = Field(
+    filing_type: str | None = Field(
         default=None,
         description="Form type: 10-K, 10-Q, 8-K, etc., if known",
     )
-    filing_date: Optional[str] = Field(
+    filing_date: str | None = Field(
         default=None,
         description="ISO filing date, if available",
     )
-    accession_number: Optional[str] = Field(
+    accession_number: str | None = Field(
         default=None,
         description="SEC accession number, if available",
     )
-    filing_section: Optional[str] = Field(
+    filing_section: str | None = Field(
         default=None,
         description="SEC item section (1, 1A, 7, etc.), if applicable",
     )
@@ -119,10 +119,7 @@ class EvidenceReference(BaseModel):
     def _validate_specialist(cls, v: str) -> str:
         normalized = v.strip().lower()
         if normalized not in ("fundamentals", "industry"):
-            raise ValueError(
-                f"original_specialist must be 'fundamentals' or 'industry', "
-                f"got '{v}'"
-            )
+            raise ValueError(f"original_specialist must be 'fundamentals' or 'industry', got '{v}'")
         return normalized
 
     @field_validator("original_claim")
@@ -161,9 +158,7 @@ class EvidenceReference(BaseModel):
         are populated, along with filing_type and filing_date when available.
         """
         has_url_or_acc = bool(self.source_url or self.accession_number)
-        has_filing_info = bool(
-            self.filing_type or self.filing_date or self.filing_section
-        )
+        has_filing_info = bool(self.filing_type or self.filing_date or self.filing_section)
         return has_url_or_acc and has_filing_info
 
 
@@ -171,7 +166,8 @@ class EvidenceReference(BaseModel):
 # Helper: deterministic evidence comparison
 # ---------------------------------------------------------------------------
 
-def _evidence_contains_claim(evidence_text: Optional[str], claim: str) -> bool:
+
+def _evidence_contains_claim(evidence_text: str | None, claim: str) -> bool:
     """Deterministically check whether evidence text contains the claim.
 
     Case-insensitive, whitespace-normalized substring match. Does not
@@ -204,7 +200,7 @@ def _compare_numerical_claims(
     claimed_metric: str,
     claimed_period: str,
     claimed_unit: str,
-    evidence_text: Optional[str],
+    evidence_text: str | None,
 ) -> tuple[VerificationOutcome, str]:
     """Deterministically compare a numerical claim against evidence text.
 
@@ -220,13 +216,16 @@ def _compare_numerical_claims(
     - Do not assume numerical verification is possible from a text excerpt alone
     """
     if not evidence_text:
-        return VerificationOutcome.insufficient_evidence, "no evidence text provided for numerical comparison"
+        return (
+            VerificationOutcome.insufficient_evidence,
+            "no evidence text provided for numerical comparison",
+        )
 
     evidence_lower = _normalize_evidence_number(evidence_text)
     value_claimed = _normalize_evidence_number(claimed_value).strip()
     metric_claimed = (claimed_metric or "").strip().lower()
-    period_claimed = (claimed_period or "").strip().lower()
-    unit_claimed = (claimed_unit or "").strip().lower()
+    (claimed_period or "").strip().lower()
+    (claimed_unit or "").strip().lower()
 
     # Check if the claimed value appears in evidence (case-insensitive, normalized)
     value_present = value_claimed in evidence_lower
@@ -344,19 +343,13 @@ def _possible_contradiction(claim_a: str, claim_b: str) -> bool:
     # Final check: opposing directional terms
     if a_has_inc and b_has_dec:
         return True
-    if a_has_dec and b_has_inc:
-        return True
-
-    return False
+    return bool(a_has_dec and b_has_inc)
 
 
 def _has_simple_negation(text: str) -> bool:
     """Check if text starts with or contains a simple negation prefix."""
     negation_prefixes = ["not ", "no ", "without ", "absent ", "lacking "]
-    for p in negation_prefixes:
-        if text.startswith(p) or p in text:
-            return True
-    return False
+    return any(text.startswith(p) or p in text for p in negation_prefixes)
 
 
 def _strip_negation_prefixes(text: str) -> str:
@@ -394,19 +387,29 @@ def _check_period_consistency(
 
     # Check if claim period is a substring of evidence period (more specific in broader)
     if claim_lower in evidence_lower:
-        return VerificationOutcome.partially_supported, f"claim period '{claim_lower}' is more specific than evidence period '{evidence_lower}'"
+        return (
+            VerificationOutcome.partially_supported,
+            f"claim period '{claim_lower}' is more specific than evidence period '{evidence_lower}'",
+        )
 
     # Check if evidence period is a substring of claim period (broader in more specific)
     if evidence_lower in claim_lower:
-        return VerificationOutcome.partially_supported, f"evidence period '{evidence_lower}' is more specific than claim period '{claim_lower}'"
+        return (
+            VerificationOutcome.partially_supported,
+            f"evidence period '{evidence_lower}' is more specific than claim period '{claim_lower}'",
+        )
 
     # No overlap
-    return VerificationOutcome.insufficient_evidence, f"no period overlap: claim '{claim_lower}' vs evidence '{evidence_lower}'"
+    return (
+        VerificationOutcome.insufficient_evidence,
+        f"no period overlap: claim '{claim_lower}' vs evidence '{evidence_lower}'",
+    )
 
 
 # ---------------------------------------------------------------------------
 # ClaimVerification — per-claim verification result
 # ---------------------------------------------------------------------------
+
 
 class ClaimVerification(BaseModel):
     """Per-claim verification result from CitationVerifier.verify()."""
@@ -435,12 +438,12 @@ class ClaimVerification(BaseModel):
         "",
         description="Human-readable reasoning for the verification outcome",
     )
-    confidence: Optional[float] = Field(
+    confidence: float | None = Field(
         None,
         description="Optional confidence score (0.0 to 1.0), only set when "
         "verification_status == supported_by_reference",
     )
-    numerical_comparison: Optional[tuple[VerificationOutcome, str]] = Field(
+    numerical_comparison: tuple[VerificationOutcome, str] | None = Field(
         None,
         description="Result of _compare_numerical_claims if applicable",
     )
@@ -450,9 +453,9 @@ class ClaimVerification(BaseModel):
         "retrieval_successful, retrieval_failed",
     )
     timestamp: str = Field(
-        default_factory=lambda: __import__("datetime").datetime.now(
-            __import__("datetime").timezone.utc
-        ).isoformat(),
+        default_factory=lambda: (
+            __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+        ),
         description="ISO timestamp when this claim was verified",
     )
 
@@ -490,6 +493,7 @@ class ClaimVerification(BaseModel):
 # VerificationIssue — specific issue identified during verification
 # ---------------------------------------------------------------------------
 
+
 class VerificationIssue(BaseModel):
     """A specific issue identified during claim verification."""
 
@@ -503,7 +507,7 @@ class VerificationIssue(BaseModel):
         "",
         description="Human-readable description of the issue",
     )
-    evidence_reference: Optional[EvidenceReference] = Field(
+    evidence_reference: EvidenceReference | None = Field(
         None,
         description="The EvidenceReference most relevant to this issue",
     )
@@ -529,6 +533,7 @@ class VerificationIssue(BaseModel):
 # EvidenceVerification — per-evidence verification summary
 # ---------------------------------------------------------------------------
 
+
 class EvidenceVerification(BaseModel):
     """Summary of evidence verification for a single claim."""
 
@@ -548,11 +553,11 @@ class EvidenceVerification(BaseModel):
         False,
         description="Whether the relevant passage was matched in the source",
     )
-    numerical_assessment: Optional[tuple[VerificationOutcome, str]] = Field(
+    numerical_assessment: tuple[VerificationOutcome, str] | None = Field(
         None,
         description="Numerical comparison result if applicable",
     )
-    issue: Optional[VerificationIssue] = Field(
+    issue: VerificationIssue | None = Field(
         None,
         description="Specific issue, if any, identified during verification",
     )
@@ -565,6 +570,7 @@ class EvidenceVerification(BaseModel):
 # ---------------------------------------------------------------------------
 # CitationVerificationResult — overall verification result
 # ---------------------------------------------------------------------------
+
 
 class CitationVerificationResult(BaseModel):
     """Overall result of CitationVerifier.verify().
@@ -615,9 +621,9 @@ class CitationVerificationResult(BaseModel):
         description="Explicit limitations on the verification process",
     )
     verification_timestamp: str = Field(
-        default_factory=lambda: __import__("datetime").datetime.now(
-            __import__("datetime").timezone.utc
-        ).isoformat(),
+        default_factory=lambda: (
+            __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+        ),
         description="ISO timestamp when verification was performed",
     )
     source_provenance_present: bool = Field(
@@ -639,8 +645,7 @@ class CitationVerificationResult(BaseModel):
     def has_partially_supported(self) -> bool:
         """Return True if any claim is partially supported."""
         return any(
-            c.verification_status == VerificationOutcome.partially_supported
-            for c in self.claims
+            c.verification_status == VerificationOutcome.partially_supported for c in self.claims
         )
 
     @property
@@ -657,6 +662,7 @@ class CitationVerificationResult(BaseModel):
 # ---------------------------------------------------------------------------
 # CitationVerifier — core verification engine
 # ---------------------------------------------------------------------------
+
 
 class CitationVerifier:
     """Core Citation Verifier engine.
@@ -686,7 +692,7 @@ class CitationVerifier:
       availability and match quality.
     """
 
-    def __init__(self, allow_network: Optional[bool] = None):
+    def __init__(self, allow_network: bool | None = None):
         """Initialize CitationVerifier.
 
         Args:
@@ -768,7 +774,6 @@ class CitationVerifier:
 
                 # Check if this reference has source provenance
                 has_source = ref.has_source_provenance
-                source_complete = ref.source_provenance_complete
 
                 # Determine retrieval status based on allow_network
                 if not self.allow_network:
@@ -808,9 +813,9 @@ class CitationVerifier:
                             f"accession_number={ref.accession_number}"
                         ),
                         retrieval_status=retrieval_status_local,
-                        timestamp=__import__("datetime").datetime.now(
-                            __import__("datetime").timezone.utc
-                        ).isoformat(),
+                        timestamp=__import__("datetime")
+                        .datetime.now(__import__("datetime").timezone.utc)
+                        .isoformat(),
                     )
                     claims.append(claim_ver)
                     claim_processed = True
@@ -848,9 +853,9 @@ class CitationVerifier:
                             f"for independent verification"
                         ),
                         retrieval_status=retrieval_status_local,
-                        timestamp=__import__("datetime").datetime.now(
-                            __import__("datetime").timezone.utc
-                        ).isoformat(),
+                        timestamp=__import__("datetime")
+                        .datetime.now(__import__("datetime").timezone.utc)
+                        .isoformat(),
                     )
                     claims.append(claim_ver)
                     claim_processed = True
@@ -861,18 +866,14 @@ class CitationVerifier:
                     any_retrieval_attempted = True  # we're effectively retrieving
 
                     # Check if evidence text contains the claim (deterministic)
-                    evidence_contains = _evidence_contains_claim(
-                        ref.evidence_text, claim_text
-                    )
+                    evidence_contains = _evidence_contains_claim(ref.evidence_text, claim_text)
 
                     # Check for possible contradictions with other refs for this claim
                     is_contradictory = False
                     for other_ref in refs:
                         if other_ref is ref:
                             continue
-                        if _possible_contradiction(
-                            ref.original_claim, other_ref.original_claim
-                        ):
+                        if _possible_contradiction(ref.original_claim, other_ref.original_claim):
                             is_contradictory = True
                             contradicted_by.append(other_ref)
                             issue = VerificationIssue(
@@ -888,7 +889,7 @@ class CitationVerifier:
                             all_issues.append(issue)
 
                     # Perform numerical comparison if the claim has numerical elements
-                    numerical_result: Optional[tuple[VerificationOutcome, str]] = None
+                    numerical_result: tuple[VerificationOutcome, str] | None = None
                     # Heuristic: if claim and evidence both contain dollar amounts,
                     # periods, or percentages, attempt numerical comparison
                     has_dollar_claim = "$" in claim_text
@@ -897,7 +898,6 @@ class CitationVerifier:
                     if has_dollar_claim or has_dollar_evidence:
                         # Try to extract period info
                         period_claim = None
-                        period_evidence = None
 
                         # Simple period extraction: look for quarter/year patterns
                         period_pattern = r"(Q[1-4]\s*\d{4}|FY\s*\d{4}|Q[1-4]\s*\d{2})"
@@ -907,14 +907,12 @@ class CitationVerifier:
 
                         em = re.search(period_pattern, ref.evidence_text or "")
                         if em:
-                            period_evidence = em.group(1)
+                            em.group(1)
 
                         numerical_result = _compare_numerical_claims(
                             claimed_value=claim_text if has_dollar_claim else "",
                             claimed_metric=(
-                                "revenue"
-                                if "revenue" in claim_text.lower()
-                                else "unknown"
+                                "revenue" if "revenue" in claim_text.lower() else "unknown"
                             ),
                             claimed_period=period_claim or "",
                             claimed_unit="dollars" if has_dollar_claim else "",
@@ -922,9 +920,14 @@ class CitationVerifier:
                         )
 
                     # Determine verdict based on contradiction, numerical, and textual match
-                    if is_contradictory and numerical_result and numerical_result[0] in (
-                        VerificationOutcome.supported,
-                        VerificationOutcome.partially_supported,
+                    if (
+                        is_contradictory
+                        and numerical_result
+                        and numerical_result[0]
+                        in (
+                            VerificationOutcome.supported,
+                            VerificationOutcome.partially_supported,
+                        )
                     ):
                         # Contradiction takes precedence when numerical claim is also supported/partial
                         final_status = VerificationOutcome.contradicted
@@ -935,7 +938,11 @@ class CitationVerifier:
                             f"Textual match: evidence contains claim={evidence_contains}. "
                             f"Retrieval status: {retrieval_status_local}."
                         )
-                    elif numerical_result and numerical_result[0] == VerificationOutcome.supported and evidence_contains:
+                    elif (
+                        numerical_result
+                        and numerical_result[0] == VerificationOutcome.supported
+                        and evidence_contains
+                    ):
                         # Exact or close numerical + textual match → supported
                         final_status = VerificationOutcome.supported
                         numerical_outcome, numerical_reasoning = numerical_result
@@ -945,7 +952,10 @@ class CitationVerifier:
                             f"Textual match: evidence contains claim. "
                             f"Retrieval status: {retrieval_status_local}."
                         )
-                    elif numerical_result and numerical_result[0] == VerificationOutcome.partially_supported:
+                    elif (
+                        numerical_result
+                        and numerical_result[0] == VerificationOutcome.partially_supported
+                    ):
                         # Partially supported: some elements match, some don't
                         final_status = VerificationOutcome.partially_supported
                         numerical_outcome, numerical_reasoning = numerical_result
@@ -954,7 +964,11 @@ class CitationVerifier:
                             f"Numerical: {numerical_reasoning}. "
                             f"Retrieval status: {retrieval_status_local}."
                         )
-                    elif numerical_result and numerical_result[0] == VerificationOutcome.insufficient_evidence and evidence_contains:
+                    elif (
+                        numerical_result
+                        and numerical_result[0] == VerificationOutcome.insufficient_evidence
+                        and evidence_contains
+                    ):
                         # Value not found but some textual overlap → partially_supported
                         final_status = VerificationOutcome.partially_supported
                         numerical_outcome, numerical_reasoning = numerical_result
@@ -1002,9 +1016,9 @@ class CitationVerifier:
                         confidence=None,  # always None unless explicitly supported_by_reference with full confidence
                         numerical_comparison=numerical_result,
                         retrieval_status=retrieval_status_local,
-                        timestamp=__import__("datetime").datetime.now(
-                            __import__("datetime").timezone.utc
-                        ).isoformat(),
+                        timestamp=__import__("datetime")
+                        .datetime.now(__import__("datetime").timezone.utc)
+                        .isoformat(),
                     )
                     claims.append(claim_ver)
                     claim_processed = True
@@ -1033,11 +1047,11 @@ class CitationVerifier:
                                 severity="error",
                             )
                         ],
-                        reasoning=f"Claim unverifiable: no evidence references provided.",
+                        reasoning="Claim unverifiable: no evidence references provided.",
                         retrieval_status="not_attempted",
-                        timestamp=__import__("datetime").datetime.now(
-                            __import__("datetime").timezone.utc
-                        ).isoformat(),
+                        timestamp=__import__("datetime")
+                        .datetime.now(__import__("datetime").timezone.utc)
+                        .isoformat(),
                     )
                     claims.append(claim_ver)
 
@@ -1074,12 +1088,8 @@ class CitationVerifier:
             refs_for_claim = evidence_references_by_claim.get(claim.claim, [])
             all_refs_used.extend(refs_for_claim)
 
-        source_provenance_present = any(
-            ref.has_source_provenance for ref in all_refs_used
-        )
-        source_provenance_complete = any(
-            ref.source_provenance_complete for ref in all_refs_used
-        )
+        source_provenance_present = any(ref.has_source_provenance for ref in all_refs_used)
+        source_provenance_complete = any(ref.source_provenance_complete for ref in all_refs_used)
 
         # Build the result
         result = CitationVerificationResult(
@@ -1088,9 +1098,7 @@ class CitationVerifier:
             overall_outcome=overall,
             all_claims_evaluated=len(claims) > 0,
             retrieval_initiated=any_retrieval_attempted,
-            source_retrieval_successful=any(
-                ref.has_source_provenance for ref in all_refs_used
-            ),
+            source_retrieval_successful=any(ref.has_source_provenance for ref in all_refs_used),
             claims=claims,
             verification_issues=all_issues,
             overall_limitations=(
@@ -1101,9 +1109,9 @@ class CitationVerifier:
                 f"Source provenance complete: {source_provenance_complete}. "
                 f"{len(all_issues)} issues identified."
             ),
-            verification_timestamp=__import__("datetime").datetime.now(
-                __import__("datetime").timezone.utc
-            ).isoformat(),
+            verification_timestamp=__import__("datetime")
+            .datetime.now(__import__("datetime").timezone.utc)
+            .isoformat(),
             source_provenance_present=source_provenance_present,
             source_provenance_complete=source_provenance_complete,
         )
@@ -1136,7 +1144,6 @@ class CitationVerifier:
 
         # Check source provenance
         has_source = ref.has_source_provenance
-        source_complete = ref.source_provenance_complete
 
         # Determine retrieval status
         if not self.allow_network:
@@ -1197,7 +1204,7 @@ class CitationVerifier:
                 verified_status = VerificationOutcome.unverifiable
 
         # Numerical assessment (simplified)
-        numerical_assessment: Optional[tuple[VerificationOutcome, str]] = None
+        numerical_assessment: tuple[VerificationOutcome, str] | None = None
         if ref.evidence_text and ("$" in claim or "$" in ref.evidence_text):
             numerical_assessment = _compare_numerical_claims(
                 claimed_value=claim,
@@ -1207,7 +1214,7 @@ class CitationVerifier:
                 evidence_text=ref.evidence_text,
             )
 
-        issue: Optional[VerificationIssue] = None
+        issue: VerificationIssue | None = None
         if not has_source:
             issue = VerificationIssue(
                 issue_type="provenance_gap",

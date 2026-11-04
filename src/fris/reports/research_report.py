@@ -15,8 +15,8 @@ Key design principles:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -24,10 +24,8 @@ from pydantic import BaseModel, Field
 class ReportMetadata(BaseModel):
     """Metadata for the research report."""
 
-    company_ticker: str = Field(
-        ..., description="Company ticker symbol (e.g., 'AAPL')"
-    )
-    company_name: Optional[str] = Field(
+    company_ticker: str = Field(..., description="Company ticker symbol (e.g., 'AAPL')")
+    company_name: str | None = Field(
         default=None, description="Company name, when available from reports"
     )
     research_question: str = Field(
@@ -110,12 +108,8 @@ class SynthesizedFindingReport(BaseModel):
     """A synthesized finding as appears in the final report."""
 
     claim: str = Field(..., description="The synthesized claim or assertion")
-    category: str = Field(
-        ..., description="reported_fact, interpretation, or unknown"
-    )
-    source_specialists: list[str] = Field(
-        ..., description="Which specialist(s) provided the basis"
-    )
+    category: str = Field(..., description="reported_fact, interpretation, or unknown")
+    source_specialists: list[str] = Field(..., description="Which specialist(s) provided the basis")
     original_claims: list[str] = Field(
         default_factory=list,
         description="Raw claim text from each source report",
@@ -144,22 +138,16 @@ class EvidenceCitation(BaseModel):
     original_claim: str = Field(
         ..., description="The exact claim text as it appeared in the source"
     )
-    evidence_text: Optional[str] = Field(
+    evidence_text: str | None = Field(
         default=None, description="Supporting evidence text from the SEC filing"
     )
-    source_url: Optional[str] = Field(
-        default=None, description="URL where the evidence was sourced"
-    )
-    filing_type: Optional[str] = Field(
-        default=None, description="Form type: 10-K, 10-Q, 8-K, etc."
-    )
-    filing_date: Optional[str] = Field(
-        default=None, description="ISO filing date, if available"
-    )
-    accession_number: Optional[str] = Field(
+    source_url: str | None = Field(default=None, description="URL where the evidence was sourced")
+    filing_type: str | None = Field(default=None, description="Form type: 10-K, 10-Q, 8-K, etc.")
+    filing_date: str | None = Field(default=None, description="ISO filing date, if available")
+    accession_number: str | None = Field(
         default=None, description="SEC accession number, if available"
     )
-    filing_section: Optional[str] = Field(
+    filing_section: str | None = Field(
         default=None, description="SEC item section (1, 1A, 7, etc.)"
     )
 
@@ -167,9 +155,7 @@ class EvidenceCitation(BaseModel):
 class CitationVerificationReport(BaseModel):
     """Verification outcome for a synthesized claim."""
 
-    claim_being_assessed: str = Field(
-        ..., description="The synthesized claim being verified"
-    )
+    claim_being_assessed: str = Field(..., description="The synthesized claim being verified")
     verification_outcome: str = Field(
         ...,
         description="Verification outcome: supported, partially_supported, "
@@ -231,18 +217,14 @@ class ResearchReport(BaseModel):
         "validate_assignment": True,
     }
 
-    report_metadata: ReportMetadata = Field(
-        ..., description="Basic report metadata"
-    )
+    report_metadata: ReportMetadata = Field(..., description="Basic report metadata")
     executive_summary: ExecutiveSummary = Field(
         ..., description="Executive summary of key findings"
     )
     fundamentals_analysis: FundamentalsFindings = Field(
         ..., description="Fundamentals analysis findings"
     )
-    industry_analysis: IndustryFindings = Field(
-        ..., description="Industry analysis findings"
-    )
+    industry_analysis: IndustryFindings = Field(..., description="Industry analysis findings")
     synthesized_findings: list[SynthesizedFindingReport] = Field(
         default_factory=list,
         description="Synthesized findings with preserved claim lineage",
@@ -290,7 +272,7 @@ class ResearchReportBuilder:
                 ResearchOrchestrator.run_pipeline()
         """
         self.orchestrator_result = orchestrator_result
-        self._report: Optional[ResearchReport] = None
+        self._report: ResearchReport | None = None
 
     def build(self) -> ResearchReport:
         """Build the complete research report from the orchestrator result.
@@ -352,9 +334,7 @@ class ResearchReportBuilder:
         )
         company_name = None
         if self.orchestrator_result.fundamentals_report:
-            cn = getattr(
-                self.orchestrator_result.fundamentals_report, "company_name", None
-            )
+            cn = getattr(self.orchestrator_result.fundamentals_report, "company_name", None)
             if cn:
                 company_name = cn
 
@@ -369,13 +349,9 @@ class ResearchReportBuilder:
         )
 
         # Get timestamp from synthesis result if available
-        synth_result = getattr(
-            self.orchestrator_result, "synthesis_result", None
-        )
+        synth_result = getattr(self.orchestrator_result, "synthesis_result", None)
         report_timestamp = (
-            synth_result.report_timestamp
-            if synth_result
-            else datetime.now(timezone.utc).isoformat()
+            synth_result.report_timestamp if synth_result else datetime.now(UTC).isoformat()
         )
 
         return ReportMetadata(
@@ -403,9 +379,7 @@ class ResearchReportBuilder:
     def _build_executive_summary(self) -> ExecutiveSummary:
         """Build executive summary from pipeline outputs."""
         # Gather agreements and contradictions from synthesis
-        synth_result = getattr(
-            self.orchestrator_result, "synthesis_result", None
-        )
+        synth_result = getattr(self.orchestrator_result, "synthesis_result", None)
 
         agreements = synth_result.agreements if synth_result else []
         contradictions = synth_result.contradictions if synth_result else []
@@ -428,23 +402,23 @@ class ResearchReportBuilder:
         important_agreements = "; ".join(agreements[:3]) if agreements else ""
 
         # Important contradictions - documented contradictions
-        important_contradictions = "; ".join(
-            str(c)[:100] for c in contradictions[:3]
-        ) if contradictions else ""
+        important_contradictions = (
+            "; ".join(str(c)[:100] for c in contradictions[:3]) if contradictions else ""
+        )
 
         # Material limitations
-        explicit_limitations = (
-            synth_result.explicit_limitations if synth_result else ""
-        )
+        explicit_limitations = synth_result.explicit_limitations if synth_result else ""
         if not explicit_limitations:
             explicit_limitations = "None identified."
 
         # Research gaps as limitations
         gap_limitations = "; ".join(research_gaps[:3]) if research_gaps else ""
 
-        material_limitations = ". ".join(
-            [lim for lim in [explicit_limitations, gap_limitations] if lim]
-        ) + "." if (explicit_limitations or gap_limitations) else ""
+        material_limitations = (
+            ". ".join([lim for lim in [explicit_limitations, gap_limitations] if lim]) + "."
+            if (explicit_limitations or gap_limitations)
+            else ""
+        )
 
         return ExecutiveSummary(
             main_findings=main_findings,
@@ -475,9 +449,7 @@ class ResearchReportBuilder:
                 findings_parts.append(claim.strip())
 
         specialist_findings = (
-            "; ".join(findings_parts[:5]) + "..."
-            if findings_parts
-            else "No findings extracted"
+            "; ".join(findings_parts[:5]) + "..." if findings_parts else "No findings extracted"
         )
 
         # Supporting evidence traceability
@@ -509,9 +481,9 @@ class ResearchReportBuilder:
             )
 
         # Extract findings from the industry report
-        findings = ia.get("findings", []) if isinstance(ia, dict) else getattr(
-            ia, "findings", []
-        ) or []
+        findings = (
+            ia.get("findings", []) if isinstance(ia, dict) else getattr(ia, "findings", []) or []
+        )
 
         findings_parts = []
         for finding in findings:
@@ -520,9 +492,7 @@ class ResearchReportBuilder:
                 findings_parts.append(claim.strip())
 
         specialist_findings = (
-            "; ".join(findings_parts[:5]) + "..."
-            if findings_parts
-            else "No findings extracted"
+            "; ".join(findings_parts[:5]) + "..." if findings_parts else "No findings extracted"
         )
 
         # Competitive observations
@@ -559,14 +529,14 @@ class ResearchReportBuilder:
             )
             if ref:
                 specialist = getattr(ref, "original_specialist", None) or ""
-                claim = (
-                    getattr(ref, "original_claim", None) or ""
-                )[:50]
-                evidence_parts.append(
-                    f"{specialist}: {claim}..."
-                )
+                claim = (getattr(ref, "original_claim", None) or "")[:50]
+                evidence_parts.append(f"{specialist}: {claim}...")
 
-        return "; ".join(evidence_parts[:3]) if evidence_parts else "No evidence traceability available"
+        return (
+            "; ".join(evidence_parts[:3])
+            if evidence_parts
+            else "No evidence traceability available"
+        )
 
     def _extract_evidence_traceability_industry(self, report: Any) -> str:
         """Extract evidence traceability from industry report."""
@@ -579,28 +549,30 @@ class ResearchReportBuilder:
         for finding in findings:
             ref = finding.get("evidence_reference") if isinstance(finding, dict) else None
             if ref:
-                specialist = ref.get("original_specialist", "") if isinstance(ref, dict) else getattr(
-                    ref, "original_specialist", ""
+                specialist = (
+                    ref.get("original_specialist", "")
+                    if isinstance(ref, dict)
+                    else getattr(ref, "original_specialist", "")
                 )
                 claim = (
-                    ref.get("original_claim", "") if isinstance(ref, dict) else getattr(
-                        ref, "original_claim", ""
-                    )
+                    ref.get("original_claim", "")
+                    if isinstance(ref, dict)
+                    else getattr(ref, "original_claim", "")
                 )[:50]
-                evidence_parts.append(
-                    f"{specialist}: {claim}..."
-                )
+                evidence_parts.append(f"{specialist}: {claim}...")
 
-        return "; ".join(evidence_parts[:3]) if evidence_parts else "No evidence traceability available"
+        return (
+            "; ".join(evidence_parts[:3])
+            if evidence_parts
+            else "No evidence traceability available"
+        )
 
     def _extract_financial_risks(self, report: Any) -> str:
         """Extract financial risks from a research report."""
         if isinstance(report, dict):
             risks = report.get("risks", report.get("risks_challenges", []))
         else:
-            risks = getattr(report, "risks", []) or getattr(
-                report, "risks_challenges", []
-            ) or []
+            risks = getattr(report, "risks", []) or getattr(report, "risks_challenges", []) or []
 
         risk_parts = []
         for risk in risks[:3]:
@@ -625,9 +597,7 @@ class ResearchReportBuilder:
 
     def _build_synthesized_findings(self) -> list[SynthesizedFindingReport]:
         """Build synthesized findings section preserving claim lineage."""
-        synth_result = getattr(
-            self.orchestrator_result, "synthesis_result", None
-        )
+        synth_result = getattr(self.orchestrator_result, "synthesis_result", None)
 
         findings = []
 
@@ -642,9 +612,7 @@ class ResearchReportBuilder:
             category = getattr(finding, "category", "interpretation") or "interpretation"
 
             # Get source specialists
-            source_specialists = getattr(
-                finding, "source_specialists", []
-            ) or []
+            source_specialists = getattr(finding, "source_specialists", []) or []
 
             # Get original claims
             original_claims = getattr(finding, "original_claims", []) or []
@@ -703,12 +671,10 @@ class ResearchReportBuilder:
         citations = []
 
         # Collect from synthesis result
-        synth_result = getattr(
-            self.orchestrator_result, "synthesis_result", None
-        )
+        synth_result = getattr(self.orchestrator_result, "synthesis_result", None)
 
         if synth_result and synth_result.source_reports:
-            for report_key, report in synth_result.source_reports.items():
+            for _report_key, report in synth_result.source_reports.items():
                 if report is None:
                     continue
 
@@ -751,7 +717,7 @@ class ResearchReportBuilder:
         fa = self.orchestrator_result.fundamentals_report
         ia = self.orchestrator_result.industry_report
 
-        for report, key in [(fa, "fundamentals"), (ia, "industry")]:
+        for report, _key in [(fa, "fundamentals"), (ia, "industry")]:
             if report is None:
                 continue
 
@@ -795,9 +761,7 @@ class ResearchReportBuilder:
         """Build citation verification outcomes from the verifier result."""
         verifications = []
 
-        ver_result = getattr(
-            self.orchestrator_result, "verification_result", None
-        )
+        ver_result = getattr(self.orchestrator_result, "verification_result", None)
 
         if ver_result is None:
             return verifications
@@ -840,9 +804,7 @@ class ResearchReportBuilder:
 
         # If no structured verification data but we have synthesis contradictions/agreements,
         # create minimal verification entries
-        if not verifications and getattr(
-            self.orchestrator_result, "synthesis_result", None
-        ):
+        if not verifications and getattr(self.orchestrator_result, "synthesis_result", None):
             synth_result = self.orchestrator_result.synthesis_result
             # Create verification entries based on synthesis outcomes
             for finding in synth_result.synthesized_findings[:3]:
@@ -868,53 +830,34 @@ class ResearchReportBuilder:
         # From specialist task limitations
         for task_key, task_result in self.orchestrator_result.tasks.items():
             if task_result.explicit_limitations:
-                limitations_parts.append(
-                    f"Task {task_key}: {task_result.explicit_limitations}"
-                )
+                limitations_parts.append(f"Task {task_key}: {task_result.explicit_limitations}")
 
         # From synthesis explicit limitations
-        synth_result = getattr(
-            self.orchestrator_result, "synthesis_result", None
-        )
+        synth_result = getattr(self.orchestrator_result, "synthesis_result", None)
         if synth_result and synth_result.explicit_limitations:
-            limitations_parts.append(
-                f"Synthesis: {synth_result.explicit_limitations}"
-            )
+            limitations_parts.append(f"Synthesis: {synth_result.explicit_limitations}")
 
         # From retrieval limitations
-        retrieval_result = getattr(
-            self.orchestrator_result, "retrieval_result", None
-        )
+        retrieval_result = getattr(self.orchestrator_result, "retrieval_result", None)
         if retrieval_result:
-            retrieval_status = getattr(
-                retrieval_result, "retrieval_status", None
-            ) or ""
-            evidence_source = getattr(
-                retrieval_result, "evidence_source", None
-            ) or ""
+            retrieval_status = getattr(retrieval_result, "retrieval_status", None) or ""
+            evidence_source = getattr(retrieval_result, "evidence_source", None) or ""
             if retrieval_status in ("failed", "blocked"):
                 limitations_parts.append(
-                    f"Retrieval: {retrieval_status} "
-                    f"(evidence_source: {evidence_source})"
+                    f"Retrieval: {retrieval_status} (evidence_source: {evidence_source})"
                 )
 
         # From verification limitations
-        ver_result = getattr(
-            self.orchestrator_result, "verification_result", None
-        )
+        ver_result = getattr(self.orchestrator_result, "verification_result", None)
         if ver_result and getattr(ver_result, "overall_limitations", None):
-            limitations_parts.append(
-                f"Verification: {ver_result.overall_limitations}"
-            )
+            limitations_parts.append(f"Verification: {ver_result.overall_limitations}")
 
         # From orchestration overall limitations
         if self.orchestrator_result.overall_limitations:
             limitations_parts.append(self.orchestrator_result.overall_limitations)
 
         # Five canonical fields as limitations context
-        synth_result = getattr(
-            self.orchestrator_result, "synthesis_result", None
-        )
+        synth_result = getattr(self.orchestrator_result, "synthesis_result", None)
         if synth_result:
             meta = {
                 "evidence_preserved": synth_result.evidence_preserved,
@@ -933,7 +876,9 @@ class ResearchReportBuilder:
                 )
                 limitations_parts.append(disclaimer)
 
-        overall_text = ". ".join(limitations_parts) + "." if limitations_parts else "None identified."
+        overall_text = (
+            ". ".join(limitations_parts) + "." if limitations_parts else "None identified."
+        )
 
         return OverallLimitations(
             missing_evidence="",
@@ -945,21 +890,13 @@ class ResearchReportBuilder:
 
     def _build_quality_metadata(self) -> dict[str, Any]:
         """Build research quality metadata with all five canonical semantic fields."""
-        synth_result = getattr(
-            self.orchestrator_result, "synthesis_result", None
-        )
+        synth_result = getattr(self.orchestrator_result, "synthesis_result", None)
 
         # Extract the five canonical fields from synthesis
         meta: dict[str, Any] = {
-            "evidence_preserved": synth_result.evidence_preserved
-            if synth_result
-            else True,
-            "input_compatible": synth_result.input_compatible
-            if synth_result
-            else True,
-            "synthesis_complete": synth_result.synthesis_complete
-            if synth_result
-            else True,
+            "evidence_preserved": synth_result.evidence_preserved if synth_result else True,
+            "input_compatible": synth_result.input_compatible if synth_result else True,
+            "synthesis_complete": synth_result.synthesis_complete if synth_result else True,
             "source_provenance_present": synth_result.source_provenance_present
             if synth_result
             else True,
@@ -969,21 +906,13 @@ class ResearchReportBuilder:
         }
 
         # Add retrieval status if available
-        retrieval_result = getattr(
-            self.orchestrator_result, "retrieval_result", None
-        )
+        retrieval_result = getattr(self.orchestrator_result, "retrieval_result", None)
         if retrieval_result:
-            meta["retrieval_status"] = getattr(
-                retrieval_result, "retrieval_status", "unknown"
-            )
-            meta["evidence_source"] = getattr(
-                retrieval_result, "evidence_source", "none"
-            )
+            meta["retrieval_status"] = getattr(retrieval_result, "retrieval_status", "unknown")
+            meta["evidence_source"] = getattr(retrieval_result, "evidence_source", "none")
 
         # Add verification outcome counts if available
-        ver_result = getattr(
-            self.orchestrator_result, "verification_result", None
-        )
+        ver_result = getattr(self.orchestrator_result, "verification_result", None)
         if ver_result and hasattr(ver_result, "verified_claims"):
             claim_outcomes: dict[str, int] = {}
             for claim in ver_result.verified_claims:

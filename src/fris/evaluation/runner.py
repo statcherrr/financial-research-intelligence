@@ -6,19 +6,16 @@ multi-agent FRIS system, recording metrics and results.
 
 from __future__ import annotations
 
-import asyncio
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 
-from pydantic import BaseModel, Field
-from pydantic import field_validator
+from pydantic import BaseModel, Field, field_validator
 
-from fris.evaluation.config import ExperimentConfig, ExperimentResult, BenchmarkCase
-from fris.evaluation.benchmark import BenchmarkDataset
-from fris.evaluation.rubric import EvaluationRubric, QualityDimension
-from fris.evaluation.metrics import TrialMetric, ExperimentMetrics
-from fris.evaluation.baseline import SingleAgentPipeline, SingleAgentBaseline, run_baseline_trial
+from fris.evaluation.baseline import run_baseline_trial
+from fris.evaluation.config import BenchmarkCase, ExperimentConfig, ExperimentResult
+from fris.evaluation.metrics import ExperimentMetrics, TrialMetric
+from fris.evaluation.rubric import EvaluationRubric
 from fris.orchestration.orchestrator import ResearchOrchestrator
 
 
@@ -43,57 +40,51 @@ class ExperimentRunner(BaseModel):
         default_factory=lambda: f"exp_{uuid.uuid4().hex[:8]}",
         description="Unique experiment identifier",
     )
-    research_question: str = Field(
-        ..., description="The research question being addressed"
-    )
+    research_question: str = Field(..., description="The research question being addressed")
     ticker: str = Field(..., description="Company ticker symbol")
-    benchmark_case: Optional[BenchmarkCase] = Field(
+    benchmark_case: BenchmarkCase | None = Field(
         default=None, description="Benchmark case defining evaluation criteria"
     )
     system_under_evaluation: str = Field(
         default="both", description="'single_agent', 'fris_multi_agent', or 'both'"
     )
-    trials: int = Field(
-        default=3, description="Number of repeated trials to run"
-    )
-    allow_network: bool = Field(
-        default=False, description="Allow network access for FRIS system"
-    )
-    model_name: str = Field(
-        default="claude-sonnet-4-20250514", description="LLM model name"
-    )
+    trials: int = Field(default=3, description="Number of repeated trials to run")
+    allow_network: bool = Field(default=False, description="Allow network access for FRIS system")
+    model_name: str = Field(default="claude-sonnet-4-20250514", description="LLM model name")
 
     # Results storage
-    single_agent_results: List[ExperimentResult] = Field(
+    single_agent_results: list[ExperimentResult] = Field(
         default_factory=list, description="Single-agent trial results"
     )
-    fris_results: List[ExperimentResult] = Field(
+    fris_results: list[ExperimentResult] = Field(
         default_factory=list, description="FRIS multi-agent trial results"
     )
-    metrics: Optional[ExperimentMetrics] = Field(
-        default=None, description="Aggregated metrics"
-    )
-    rubric: Optional[EvaluationRubric] = Field(
+    metrics: ExperimentMetrics | None = Field(default=None, description="Aggregated metrics")
+    rubric: EvaluationRubric | None = Field(
         default=None, description="Evaluation rubric with scores"
     )
 
     def model_dump(self, **kwargs):
         """Dump with explicit handling of None values."""
-        return {k: v for k, v in self.model_dump(default_factory=dict, **kwargs).items() if v is not None}
+        return {
+            k: v
+            for k, v in self.model_dump(default_factory=dict, **kwargs).items()
+            if v is not None
+        }
 
-    async def run_single_agent_trials(self) -> List[ExperimentResult]:
+    async def run_single_agent_trials(self) -> list[ExperimentResult]:
         """Run the specified number of single-agent baseline trials."""
         results = []
         for trial_num in range(1, self.trials + 1):
             experiment_id = f"{self.experiment_id}_sa_{trial_num}"
-            config = ExperimentConfig(
+            ExperimentConfig(
                 experiment_id=experiment_id,
                 research_question=self.research_question,
                 ticker=self.ticker,
                 model_name=self.model_name,
                 trial_number=trial_num,
                 system_under_evaluation="single_agent",
-                start_timestamp=datetime.now(timezone.utc).isoformat(),
+                start_timestamp=datetime.now(UTC).isoformat(),
             )
 
             result = await run_baseline_trial(
@@ -104,34 +95,34 @@ class ExperimentRunner(BaseModel):
                 trial_number=trial_num,
                 allow_network=self.allow_network,
             )
-            result.end_timestamp = datetime.now(timezone.utc).isoformat()
+            result.end_timestamp = datetime.now(UTC).isoformat()
             results.append(result)
 
         self.single_agent_results = results
         return results
 
-    async def run_fris_trials(self) -> List[ExperimentResult]:
+    async def run_fris_trials(self) -> list[ExperimentResult]:
         """Run the specified number of FRIS multi-agent pipeline trials."""
         results = []
         orchestrator = ResearchOrchestrator(allow_network=self.allow_network)
 
         for trial_num in range(1, self.trials + 1):
             experiment_id = f"{self.experiment_id}_fris_{trial_num}"
-            config = ExperimentConfig(
+            ExperimentConfig(
                 experiment_id=experiment_id,
                 research_question=self.research_question,
                 ticker=self.ticker,
                 model_name=self.model_name,
                 trial_number=trial_num,
                 system_under_evaluation="fris_multi_agent",
-                start_timestamp=datetime.now(timezone.utc).isoformat(),
+                start_timestamp=datetime.now(UTC).isoformat(),
             )
 
             result = await orchestrator.run_pipeline(
                 ticker=self.ticker,
                 research_question=self.research_question,
             )
-            result.end_timestamp = datetime.now(timezone.utc).isoformat()
+            result.end_timestamp = datetime.now(UTC).isoformat()
             # Set experiment_id on the result if possible
             result.experiment_id = experiment_id
             results.append(result)
@@ -139,7 +130,7 @@ class ExperimentRunner(BaseModel):
         self.fris_results = results
         return results
 
-    async def run_experiment(self) -> Dict[str, Any]:
+    async def run_experiment(self) -> dict[str, Any]:
         """Run the full experiment (both systems or just the specified system)."""
         results = {}
 
@@ -183,15 +174,15 @@ class ExperimentRunner(BaseModel):
             "fris_count": len(results.get("fris_multi_agent", [])),
             "results": all_results,
             "metrics": self.metrics.model_dump() if self.metrics else {},
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         return summary
 
     def set_rubric_scores(
         self,
-        quality_scores: Dict[str, float],
-        efficiency_scores: Optional[Dict[str, float]] = None,
+        quality_scores: dict[str, float],
+        efficiency_scores: dict[str, float] | None = None,
         notes: str = "",
     ) -> None:
         """Set evaluation rubric scores.
@@ -210,11 +201,11 @@ class ExperimentRunner(BaseModel):
             for dim_name, score in efficiency_scores.items():
                 self.rubric.add_efficiency_score(dim_name, score, notes=notes)
 
-    def get_rubric(self) -> Optional[EvaluationRubric]:
+    def get_rubric(self) -> EvaluationRubric | None:
         """Get the evaluation rubric with recorded scores."""
         return self.rubric
 
-    def get_summary_statistics(self) -> Dict[str, Any]:
+    def get_summary_statistics(self) -> dict[str, Any]:
         """Get summary statistics across all completed trials."""
         if not self.single_agent_results and not self.fris_results:
             return {"error": "No trial results available"}
@@ -232,12 +223,8 @@ class ExperimentRunner(BaseModel):
         }
 
         # Token usage comparison
-        sa_tokens = sum(
-            (r.token_usage or {}).get("total", 0) for r in self.single_agent_results
-        )
-        fris_tokens = sum(
-            (r.token_usage or {}).get("total", 0) for r in self.fris_results
-        )
+        sa_tokens = sum((r.token_usage or {}).get("total", 0) for r in self.single_agent_results)
+        fris_tokens = sum((r.token_usage or {}).get("total", 0) for r in self.fris_results)
 
         summary["token_usage"] = {
             "single_agent_total": sa_tokens,
@@ -298,19 +285,23 @@ class ComparisonAnalysis(BaseModel):
 
     experiment_id: str = Field(..., description="Experiment identifier")
 
-    quality_comparison: Dict[str, Any] = Field(
+    quality_comparison: dict[str, Any] = Field(
         default_factory=dict, description="Quality dimension comparison"
     )
-    efficiency_comparison: Dict[str, Any] = Field(
+    efficiency_comparison: dict[str, Any] = Field(
         default_factory=dict, description="Efficiency dimension comparison"
     )
-    verification_comparison: Dict[str, Any] = Field(
+    verification_comparison: dict[str, Any] = Field(
         default_factory=dict, description="Verification outcome comparison"
     )
-    statistical_assessment: Dict[str, Any] = Field(
+    statistical_assessment: dict[str, Any] = Field(
         default_factory=dict, description="Statistical assessment of differences"
     )
 
     def model_dump(self, **kwargs):
         """Dump with explicit handling of None values."""
-        return {k: v for k, v in self.model_dump(default_factory=dict, **kwargs).items() if v is not None}
+        return {
+            k: v
+            for k, v in self.model_dump(default_factory=dict, **kwargs).items()
+            if v is not None
+        }

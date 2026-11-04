@@ -1,26 +1,23 @@
 """Tests for FRIS Milestone 6.5 Evaluation & Benchmarking Framework."""
 
-import sys
 import os
+import sys
 
 # Add the project to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from fris.evaluation.config import (
-    ExperimentConfig,
-    ExperimentResult,
-    BenchmarkCase,
-)
-from fris.evaluation.benchmark import BenchmarkDataset
-from fris.evaluation.rubric import EvaluationRubric, QualityDimension
-from fris.evaluation.metrics import TrialMetric, ExperimentMetrics
 from fris.evaluation.baseline import (
-    SingleAgentBaseline,
-    SingleAgentPipeline,
     run_baseline_trial,
 )
-from fris.evaluation.runner import ExperimentRunner, ComparisonAnalysis
 from fris.evaluation.benchmark import NVDA_BENCHMARK, BenchmarkDataset
+from fris.evaluation.config import (
+    BenchmarkCase,
+    ExperimentConfig,
+    ExperimentResult,
+)
+from fris.evaluation.metrics import ExperimentMetrics, TrialMetric
+from fris.evaluation.rubric import EvaluationRubric
+from fris.evaluation.runner import ComparisonAnalysis, ExperimentRunner
 
 
 def test_experiment_config():
@@ -112,7 +109,9 @@ def test_rubric_creation():
     # Add quality scores
     rubric.add_quality_score("factual_accuracy", 0.9, notes="Good factual coverage")
     rubric.add_quality_score("evidence_support", 0.7, notes="Some evidence gaps")
-    rubric.add_quality_score("contradiction_detection", 0.8, notes="Good at detecting contradictions")
+    rubric.add_quality_score(
+        "contradiction_detection", 0.8, notes="Good at detecting contradictions"
+    )
 
     assert rubric.has_quality_scores
     assert rubric.get_quality_score("factual_accuracy") == 0.9
@@ -282,6 +281,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"  FAILED: {e}")
             import traceback
+
             traceback.print_exc()
 
     print(f"\n{'=' * 60}")

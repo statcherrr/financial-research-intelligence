@@ -8,29 +8,22 @@ No accidental live SEC requests.
 
 from __future__ import annotations
 
-import json
-from enum import Enum
-
 import pytest
 
 from src.fris.verification.citation_verifier import (
     CitationVerifier,
-    VerificationOutcome,
     EvidenceReference,
-    ClaimVerification,
-    CitationVerificationResult,
-    EvidenceVerification,
-    VerificationIssue,
-    _evidence_contains_claim,
-    _compare_numerical_claims,
-    _possible_contradiction,
+    VerificationOutcome,
     _check_period_consistency,
+    _compare_numerical_claims,
+    _evidence_contains_claim,
+    _possible_contradiction,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def make_verifier(allow_network: bool = True) -> CitationVerifier:
     return CitationVerifier(allow_network=allow_network)
@@ -40,11 +33,14 @@ def make_verifier(allow_network: bool = True) -> CitationVerifier:
 # Test: deterministic helpers
 # ---------------------------------------------------------------------------
 
+
 class TestDeterministicHelpers:
     """Tests for deterministic comparison functions."""
 
     def test_evidence_contains_claim(self):
-        assert _evidence_contains_claim("Revenue of $94.8 billion", "revenue of $94.8 billion") is True
+        assert (
+            _evidence_contains_claim("Revenue of $94.8 billion", "revenue of $94.8 billion") is True
+        )
         assert _evidence_contains_claim("Revenue of $94.8 billion", "expenses") is False
         assert _evidence_contains_claim(None, "claim") is False
         assert _evidence_contains_claim(" ", "claim") is False
@@ -83,30 +79,19 @@ class TestDeterministicHelpers:
         assert "not found in evidence" in reasoning
 
     def test_possible_contradiction(self):
-        assert _possible_contradiction(
-            "revenue increased",
-            "revenue did not increase"
-        ) is True
-        assert _possible_contradiction(
-            "margin pressure",
-            "revenue increased"
-        ) is False
-        assert _possible_contradiction(
-            "revenue growth",
-            "revenue decline"
-        ) is True
+        assert _possible_contradiction("revenue increased", "revenue did not increase") is True
+        assert _possible_contradiction("margin pressure", "revenue increased") is False
+        assert _possible_contradiction("revenue growth", "revenue decline") is True
 
     def test_check_period_consistency_supported(self):
         outcome, reasoning = _check_period_consistency(
-            "Apple's revenue for Q3 2024",
-            "Apple's Q3 2024 earnings release"
+            "Apple's revenue for Q3 2024", "Apple's Q3 2024 earnings release"
         )
         assert outcome == "supported"
 
     def test_check_period_consistency_partial(self):
         outcome, reasoning = _check_period_consistency(
-            "Apple's revenue for FY 2023",
-            "Apple's Q3 2024 earnings release"
+            "Apple's revenue for FY 2023", "Apple's Q3 2024 earnings release"
         )
         # Should be partially_supported or insufficient depending on overlap
         assert outcome in ("supported", "partially_supported", "insufficient_evidence")
@@ -116,21 +101,25 @@ class TestDeterministicHelpers:
 # Test: EvidenceReference validation
 # ---------------------------------------------------------------------------
 
+
 class TestEvidenceReferenceValidation:
     """Tests for EvidenceReference model construction."""
 
     def test_evidence_reference_missing_specialist_raises(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             EvidenceReference(original_claim="some claim")
 
     def test_evidence_reference_missing_claim_raises(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             EvidenceReference(original_specialist="fundamentals")
 
     def test_evidence_reference_invalid_specialist_raises(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             EvidenceReference(original_specialist="invalid", original_claim="test")
 
@@ -163,6 +152,7 @@ class TestEvidenceReferenceValidation:
 # ---------------------------------------------------------------------------
 # Test: CitationVerifier — network authorization
 # ---------------------------------------------------------------------------
+
 
 class TestCitationVerifierNetworkAuthorization:
     """Tests for network authorization boundary."""
@@ -207,6 +197,7 @@ class TestCitationVerifierNetworkAuthorization:
 # ---------------------------------------------------------------------------
 # Test: Per-scenario verification outcomes
 # ---------------------------------------------------------------------------
+
 
 class TestVerificationScenarios:
     """Parameterized tests for each behavioral scenario."""
@@ -266,14 +257,23 @@ class TestVerificationScenarios:
             # Scenario 6: Direct factual contradiction
             (
                 "scenario_6_factual_contradiction",
-                ["Apple reported strong revenue growth in Q3 2024", "Competitive pressure may limit future growth"],
+                [
+                    "Apple reported strong revenue growth in Q3 2024",
+                    "Competitive pressure may limit future growth",
+                ],
                 ["contradicted", "partially_supported"],  # at least one contradicted
             ),
             # Scenario 7: Interpretive disagreement
             (
                 "scenario_7_interpretive_disagreement",
-                ["Apple's strong brand loyalty is a competitive advantage", "Apple's brand loyalty is overestimated by market analysts"],
-                ["partially_supported", "partially_supported"],  # facts supported, interpretations differ
+                [
+                    "Apple's strong brand loyalty is a competitive advantage",
+                    "Apple's brand loyalty is overestimated by market analysts",
+                ],
+                [
+                    "partially_supported",
+                    "partially_supported",
+                ],  # facts supported, interpretations differ
             ),
             # Scenario 8: Different time horizons
             (
@@ -339,32 +339,32 @@ class TestVerificationScenarios:
         evidence_references_by_claim = {}
 
         for i, claim in enumerate(claims):
-            claim_lower = claim.lower()
-            if scenario_name == "scenario_1_both_present_supported":
-                evidence_references_by_claim[claim] = [ref_full]
-            elif scenario_name == "scenario_2_one_report_missing":
+            claim.lower()
+            if (
+                scenario_name == "scenario_1_both_present_supported"
+                or scenario_name == "scenario_2_one_report_missing"
+            ):
                 evidence_references_by_claim[claim] = [ref_full]
             elif scenario_name == "scenario_3_empty_findings":
                 evidence_references_by_claim[claim] = []
-            elif scenario_name == "scenario_4_ticker_mismatch":
+            elif (
+                scenario_name == "scenario_4_ticker_mismatch"
+                or scenario_name == "scenario_5_different_scopes"
+            ):
                 evidence_references_by_claim[claim] = [ref_full]
-            elif scenario_name == "scenario_5_different_scopes":
-                evidence_references_by_claim[claim] = [ref_full]
-            elif scenario_name == "scenario_6_factual_contradiction":
+            elif (
+                scenario_name == "scenario_6_factual_contradiction"
+                or scenario_name == "scenario_7_interpretive_disagreement"
+            ):
                 if i == 0:
                     evidence_references_by_claim[claims[0]] = [ref_full]
                 else:
                     evidence_references_by_claim[claims[1]] = [ref_lineage_only]
-            elif scenario_name == "scenario_7_interpretive_disagreement":
-                if i == 0:
-                    evidence_references_by_claim[claims[0]] = [ref_full]
-                else:
-                    evidence_references_by_claim[claims[1]] = [ref_lineage_only]
-            elif scenario_name == "scenario_8_different_time_horizons":
-                evidence_references_by_claim[claim] = [ref_full]
-            elif scenario_name == "scenario_9_compatible_considerations":
-                evidence_references_by_claim[claim] = [ref_full]
-            elif scenario_name == "scenario_10_unsupported_numerical":
+            elif (
+                scenario_name == "scenario_8_different_time_horizons"
+                or scenario_name == "scenario_9_compatible_considerations"
+                or scenario_name == "scenario_10_unsupported_numerical"
+            ):
                 evidence_references_by_claim[claim] = [ref_full]
             elif scenario_name == "scenario_11A_missing_source_metadata":
                 evidence_references_by_claim[claim] = [ref_lineage_only]
@@ -372,9 +372,10 @@ class TestVerificationScenarios:
                 evidence_references_by_claim[claim] = []
             elif scenario_name == "scenario_12_provenance_preservation":
                 evidence_references_by_claim[claim] = [ref_full, ref_lineage_only]
-            elif scenario_name == "scenario_13_partial_specialist_failure":
-                evidence_references_by_claim[claim] = [ref_full]
-            elif scenario_name == "scenario_14_deterministic":
+            elif (
+                scenario_name == "scenario_13_partial_specialist_failure"
+                or scenario_name == "scenario_14_deterministic"
+            ):
                 evidence_references_by_claim[claim] = [ref_full]
 
         result = verifier.verify(
@@ -390,7 +391,7 @@ class TestVerificationScenarios:
         assert len(result.claims) == len(claims)
 
         # Check each claim's verification status
-        for i, (claim, expected_status) in enumerate(zip(claims, expected_statuses)):
+        for i, (claim, _expected_status) in enumerate(zip(claims, expected_statuses, strict=False)):
             actual_status = result.claims[i].verification_status
             # With allow_network=False, outcomes will reflect provenance/network status
             # The key thing is that the outcome is one of the valid taxonomy values
@@ -410,16 +411,19 @@ class TestVerificationScenarios:
 # Test: Validation scenarios (assert ValidationError)
 # ---------------------------------------------------------------------------
 
+
 class TestValidationScenarios:
     """Tests that assert ValidationError is raised for invalid constructions."""
 
     def test_evidence_reference_without_specialist_raises_validation_error(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             EvidenceReference(original_claim="some claim")
 
     def test_evidence_reference_without_claim_raises_validation_error(self):
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             EvidenceReference(original_specialist="fundamentals")
 
@@ -445,12 +449,12 @@ class TestValidationScenarios:
 # Test: Read-only behavior
 # ---------------------------------------------------------------------------
 
+
 class TestReadOnlyBehavior:
     """Tests that CitationVerifier.verify() is read-only."""
 
     def test_verify_does_not_modify_input(self):
         """The input ResearchSynthesizerResult must not be modified."""
-        from src.fris.llms.protocol import ChatCompletionRequest, ChatMessage
 
         verifier = CitationVerifier(allow_network=False)
 
@@ -485,6 +489,7 @@ class TestReadOnlyBehavior:
 # ---------------------------------------------------------------------------
 # Test: Numerical claim handling
 # ---------------------------------------------------------------------------
+
 
 class TestNumericalClaimHandling:
     """Tests for numerical claim verification."""
@@ -527,42 +532,32 @@ class TestNumericalClaimHandling:
 # Test: Contradiction and interpretation handling
 # ---------------------------------------------------------------------------
 
+
 class TestContradictionAndInterpretation:
     """Tests for contradiction and interpretive disagreement."""
 
     def test_possible_contradiction_negation(self):
         """Keyword heuristic detects possible contradiction."""
-        assert _possible_contradiction(
-            "revenue increased",
-            "revenue did not increase"
-        ) is True
+        assert _possible_contradiction("revenue increased", "revenue did not increase") is True
 
     def test_possible_contradiction_opposing_terms(self):
-        """ Opposing directional terms detected."""
-        assert _possible_contradiction(
-            "revenue growth",
-            "revenue decline"
-        ) is True
+        """Opposing directional terms detected."""
+        assert _possible_contradiction("revenue growth", "revenue decline") is True
 
     def test_possible_contradiction_no_conflict(self):
         """Non-conflicting claims should not trigger."""
-        assert _possible_contradiction(
-            "margin pressure",
-            "revenue increased"
-        ) is False
+        assert _possible_contradiction("margin pressure", "revenue increased") is False
 
     def test_period_consistency_supported(self):
         """Periods that match should be supported."""
         outcome, reasoning = _check_period_consistency(
-            "Apple's revenue for Q3 2024",
-            "Apple's Q3 2024 earnings report"
+            "Apple's revenue for Q3 2024", "Apple's Q3 2024 earnings report"
         )
         assert outcome in ("supported", "partially_supported")
 
     def test_period_consistency_mismatch(self):
         """Periods that don't match should be insufficient or partial."""
         outcome, reasoning = _check_period_consistency(
-            "Apple's revenue for FY 2023",
-            "Apple's Q3 2024 earnings report"
+            "Apple's revenue for FY 2023", "Apple's Q3 2024 earnings report"
         )
         assert outcome in ("insufficient_evidence", "partially_supported")

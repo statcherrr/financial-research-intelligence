@@ -6,8 +6,6 @@ Quality scores are kept separate from efficiency measurements.
 
 from __future__ import annotations
 
-from typing import Any, Optional, List, Dict
-
 from pydantic import BaseModel, Field
 
 
@@ -15,21 +13,11 @@ class QualityDimension(BaseModel):
     """A single quality dimension for evaluation."""
 
     name: str = Field(..., description="Name of the quality dimension")
-    description: str = Field(
-        ..., description="Detailed description of what is being evaluated"
-    )
-    score: Optional[float] = Field(
-        default=None, description="Score 0.0-1.0, or None if not evaluable"
-    )
-    score_anchor_high: str = Field(
-        description="Description of what score=1.0 looks like"
-    )
-    score_anchor_low: str = Field(
-        description="Description of what score=0.0 looks like"
-    )
-    evaluator_notes: str = Field(
-        default="", description="Optional notes from the evaluator"
-    )
+    description: str = Field(..., description="Detailed description of what is being evaluated")
+    score: float | None = Field(default=None, description="Score 0.0-1.0, or None if not evaluable")
+    score_anchor_high: str = Field(description="Description of what score=1.0 looks like")
+    score_anchor_low: str = Field(description="Description of what score=0.0 looks like")
+    evaluator_notes: str = Field(default="", description="Optional notes from the evaluator")
 
     def is_complete(self) -> bool:
         """Check if this dimension has a scorable value."""
@@ -40,21 +28,19 @@ class EvaluationRubric(BaseModel):
     """Complete evaluation rubric with all quality and efficiency dimensions."""
 
     experiment_id: str = Field(..., description="Experiment identifier")
-    quality_dimensions: List[QualityDimension] = Field(
+    quality_dimensions: list[QualityDimension] = Field(
         default_factory=list, description="Quality evaluation dimensions"
     )
-    efficiency_dimensions: List[QualityDimension] = Field(
+    efficiency_dimensions: list[QualityDimension] = Field(
         default_factory=list, description="Efficiency evaluation dimensions"
     )
-    overall_quality: Optional[float] = Field(
+    overall_quality: float | None = Field(
         default=None, description="Optional overall quality aggregate (0.0-1.0)"
     )
-    overall_efficiency: Optional[float] = Field(
+    overall_efficiency: float | None = Field(
         default=None, description="Optional overall efficiency aggregate (0.0-1.0)"
     )
-    evaluation_notes: str = Field(
-        default="", description="Optional overall evaluation notes"
-    )
+    evaluation_notes: str = Field(default="", description="Optional overall evaluation notes")
 
     def add_quality_score(self, dimension_name: str, score: float, notes: str = "") -> None:
         """Add a score to a quality dimension by name."""
@@ -94,14 +80,14 @@ class EvaluationRubric(BaseModel):
         )
         self.efficiency_dimensions.append(new_dim)
 
-    def get_quality_score(self, dimension_name: str) -> Optional[float]:
+    def get_quality_score(self, dimension_name: str) -> float | None:
         """Get a quality dimension score by name."""
         for dim in self.quality_dimensions:
             if dim.name == dimension_name:
                 return dim.score
         return None
 
-    def get_efficiency_score(self, dimension_name: str) -> Optional[float]:
+    def get_efficiency_score(self, dimension_name: str) -> float | None:
         """Get an efficiency dimension score by name."""
         for dim in self.efficiency_dimensions:
             if dim.name == dimension_name:

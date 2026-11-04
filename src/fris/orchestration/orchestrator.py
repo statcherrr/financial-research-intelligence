@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from fris.agents import FundamentalsAnalyst, IndustryAnalyst
 
@@ -214,16 +214,19 @@ class ResearchOrchestrator:
     def _import_synthesizer(self):
         """Lazily import ResearchSynthesizer to avoid circular imports."""
         from fris.synthesis import ResearchSynthesizer  # noqa: F811
+
         return ResearchSynthesizer()
 
     def _import_retriever(self):
         """Lazily import EdgarRetriever to avoid circular imports."""
         from fris.retrieval.edgar_retriever import EdgarRetriever  # noqa: F811
+
         return EdgarRetriever(allow_network=self.allow_network)
 
     def _import_verifier(self):
         """Lazily import CitationVerifier to avoid circular imports."""
         from fris.verification.citation_verifier import CitationVerifier  # noqa: F811
+
         return CitationVerifier(allow_network=self.allow_network)
 
     def _decompose_task(self, research_question: str, ticker: str) -> list[dict[str, Any]]:
@@ -487,7 +490,11 @@ class ResearchOrchestrator:
                             f_ref = getattr(f, "evidence_reference", None)
                             if f_ref is not None and f_ref not in refs_for_claim:
                                 refs_for_claim.append(f_ref)
-                    if ia_report is not None and isinstance(ia_report, dict) and "findings" in ia_report:
+                    if (
+                        ia_report is not None
+                        and isinstance(ia_report, dict)
+                        and "findings" in ia_report
+                    ):
                         for f in ia_report["findings"]:
                             f_ref = f.get("evidence_reference", None)
                             if f_ref is not None and f_ref not in refs_for_claim:
@@ -544,29 +551,25 @@ class ResearchOrchestrator:
         # From specialist task limitations
         for task_key, task_result in result.tasks.items():
             if task_result.explicit_limitations:
-                limitations_parts.append(
-                    f"Task {task_key}: {task_result.explicit_limitations}"
-                )
+                limitations_parts.append(f"Task {task_key}: {task_result.explicit_limitations}")
 
         # From synthesis explicit limitations
         if synthesis_result is not None and synthesis_result.explicit_limitations:
-            limitations_parts.append(
-                f"Synthesis: {synthesis_result.explicit_limitations}"
-            )
+            limitations_parts.append(f"Synthesis: {synthesis_result.explicit_limitations}")
 
         # From retrieval limitations
-        if retrieval_result is not None:
-            if retrieval_result.retrieval_status in ("failed", "blocked"):
-                limitations_parts.append(
-                    f"Retrieval: {retrieval_result.retrieval_status} "
-                    f"(evidence_source: {retrieval_result.evidence_source})"
-                )
+        if retrieval_result is not None and retrieval_result.retrieval_status in (
+            "failed",
+            "blocked",
+        ):
+            limitations_parts.append(
+                f"Retrieval: {retrieval_result.retrieval_status} "
+                f"(evidence_source: {retrieval_result.evidence_source})"
+            )
 
         # From verification limitations
         if verification_result is not None and verification_result.overall_limitations:
-            limitations_parts.append(
-                f"Verification: {verification_result.overall_limitations}"
-            )
+            limitations_parts.append(f"Verification: {verification_result.overall_limitations}")
 
         if limitations_parts:
             result.overall_limitations = " . ".join(limitations_parts) + "."

@@ -8,36 +8,31 @@ source_provenance_present, source_provenance_complete.
 
 from __future__ import annotations
 
+from datetime import UTC
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from fris.agents import FundamentalsAnalyst
-from fris.agents import IndustryAnalyst
+from fris.agents import FundamentalsAnalyst, IndustryAnalyst
 from fris.verification.citation_verifier import EvidenceReference
 
 
 class SynthesizedFinding(BaseModel):
     """A single synthesized finding with preserved evidence references."""
 
-
     model_config = {"arbitrary_types_allowed": True}
 
-    claim: str = Field(
-        ..., description="The synthesized claim or assertion"
-    )
-    category: str = Field(
-        ..., description="reported_fact, interpretation, or unknown"
-    )
-    source_specialists: "list[str]" = Field(
+    claim: str = Field(..., description="The synthesized claim or assertion")
+    category: str = Field(..., description="reported_fact, interpretation, or unknown")
+    source_specialists: list[str] = Field(
         ...,
         description="Which specialist(s) provided the basis for this finding",
     )
-    original_claims: "list[str]" = Field(
+    original_claims: list[str] = Field(
         default_factory=list,
         description="Raw claim text from each source report",
     )
-    evidence_references: "list[EvidenceReference]" = Field(
+    evidence_references: list[EvidenceReference] = Field(
         default_factory=list,
         description="Structured provenance references supporting this finding. "
         "Each reference independently preserves original_specialist and original_claim. "
@@ -52,7 +47,7 @@ class SynthesizedFinding(BaseModel):
         "(at least one EvidenceReference with matching source_url and/or "
         "accession_number across lists)",
     )
-    limitations: Optional[str] = Field(
+    limitations: str | None = Field(
         default=None,
         description="Explicit limitations on this finding",
     )
@@ -61,12 +56,12 @@ class SynthesizedFinding(BaseModel):
         description="Evidence status: supported_by_reference, unverified, "
         "insufficient_evidence, evidence_missing",
     )
-    confidence: Optional[float] = Field(
+    confidence: float | None = Field(
         default=None,
         description="LLM-assigned confidence (0.0 to 1.0), not proof of accuracy. "
         "Must be None if evidence_status != supported_by_reference.",
     )
-    source_filing_references: "list[str]" = Field(
+    source_filing_references: list[str] = Field(
         default_factory=list,
         description="ACCENSION_NUMBERs or filing identifiers from source evidence",
     )
@@ -80,7 +75,6 @@ class ResearchSynthesizerResult(BaseModel):
         "validate_assignment": True,
     }
 
-
     company_ticker: str = Field(
         ...,
         description="Company ticker symbol (must match both source reports if provided)",
@@ -93,35 +87,35 @@ class ResearchSynthesizerResult(BaseModel):
         default="",
         description="Concise 2-3 sentence summary of key synthesized findings",
     )
-    synthesized_findings: "list[SynthesizedFinding]" = Field(
+    synthesized_findings: list[SynthesizedFinding] = Field(
         default_factory=list,
         description="Findings synthesized from one or both specialist reports",
     )
-    contradictions: "list[Any]" = Field(
+    contradictions: list[Any] = Field(
         default_factory=list,
         description="Explicitly documented contradictions between specialists",
     )
-    agreements: "list[str]" = Field(
+    agreements: list[str] = Field(
         default_factory=list,
         description="Concise descriptions of findings where both specialists agree",
     )
-    opportunities: "list[str]" = Field(
+    opportunities: list[str] = Field(
         default_factory=list,
         description="Opportunities identified across both reports",
     )
-    risks: "list[str]" = Field(
+    risks: list[str] = Field(
         default_factory=list,
         description="Risks identified across both reports",
     )
-    research_gaps: "list[str]" = Field(
+    research_gaps: list[str] = Field(
         default_factory=list,
         description="Identified gaps in evidence or analysis",
     )
-    explicit_limitations: Optional[str] = Field(
+    explicit_limitations: str | None = Field(
         default=None,
         description="Overall explicit limitations of the synthesis process",
     )
-    evidence_preserved: Optional[bool] = Field(
+    evidence_preserved: bool | None = Field(
         default=None,
         description="Whether source evidence was preserved and traceable. "
         "True if every SynthesizedFinding with a non-None claim has at least one "
@@ -132,7 +126,7 @@ class ResearchSynthesizerResult(BaseModel):
         "or evidence adequacy. "
         "Always set by synthesize(); defaults to None for construction safety.",
     )
-    input_compatible: Optional[bool] = Field(
+    input_compatible: bool | None = Field(
         default=None,
         description="Whether the provided reports are compatible with the requested synthesis "
         "considering report existence, ticker matching, and scope compatibility. "
@@ -140,7 +134,7 @@ class ResearchSynthesizerResult(BaseModel):
         "still have traceable provenance from the available report(s); evidence_preserved "
         "is evaluated only on the findings that could be synthesized from the provided reports.",
     )
-    synthesis_complete: Optional[bool] = Field(
+    synthesis_complete: bool | None = Field(
         default=None,
         description="Whether the synthesized findings adequately address the research question "
         "scope, considering which reports were provided. Independent of both "
@@ -149,14 +143,14 @@ class ResearchSynthesizerResult(BaseModel):
         "can also be incomplete despite preserved evidence if the available reports "
         "do not address the research question.",
     )
-    source_provenance_present: Optional[bool] = Field(
+    source_provenance_present: bool | None = Field(
         default=None,
         description="Whether at least one source-related field is populated across all "
         "EvidenceReferences. Independent of evidence preservation and synthesis "
         "completeness. Tracks whether source locator information is available, "
         "regardless of whether it is sufficient for independent inspection.",
     )
-    source_provenance_complete: Optional[bool] = Field(
+    source_provenance_complete: bool | None = Field(
         default=None,
         description="Whether enough source-location information exists to independently "
         "locate and inspect the underlying evidence. For SEC filings: accession_number "
@@ -168,7 +162,7 @@ class ResearchSynthesizerResult(BaseModel):
         ...,
         description="Timezone-aware ISO timestamp when synthesis was performed",
     )
-    source_reports: "dict[str, Any]" = Field(
+    source_reports: dict[str, Any] = Field(
         default_factory=dict,
         description="Original ResearchReport objects from each specialist. "
         "Keys: 'fundamentals', 'industry'",
@@ -242,9 +236,7 @@ class ResearchSynthesizer:
             result.synthesis_complete = False
             result.source_provenance_present = False
             result.source_provenance_complete = False
-            result.research_gaps.append(
-                "No specialist reports provided for synthesis"
-            )
+            result.research_gaps.append("No specialist reports provided for synthesis")
             result.explicit_limitations = (
                 "No specialist reports provided; no evidence available for synthesis."
             )
@@ -252,23 +244,15 @@ class ResearchSynthesizer:
 
         # Extract findings and EvidenceReferences from each report
         fundamentals_findings = (
-            getattr(fundamentals_report, "findings", [])
-            if has_fundamentals
-            else []
+            getattr(fundamentals_report, "findings", []) if has_fundamentals else []
         )
-        industry_findings = (
-            getattr(industry_report, "findings", [])
-            if has_industry
-            else []
-        )
+        industry_findings = getattr(industry_report, "findings", []) if has_industry else []
 
         # Track which original claims have EvidenceReference lineage
         fundamentals_claims = self._extract_claims_with_references(
             fundamentals_findings, "fundamentals"
         )
-        industry_claims = self._extract_claims_with_references(
-            industry_findings, "industry"
-        )
+        industry_claims = self._extract_claims_with_references(industry_findings, "industry")
 
         # Identify agreements and disagreements
         agreements, contradictions = self._identify_agreements_and_contradictions(
@@ -292,9 +276,7 @@ class ResearchSynthesizer:
         )
 
         # Evaluate the three independent semantic fields
-        result.evidence_preserved = self._evaluate_evidence_preserved(
-            synthesized_findings
-        )
+        result.evidence_preserved = self._evaluate_evidence_preserved(synthesized_findings)
 
         # input_compatible: check if reports are suitable for the requested synthesis
         result.input_compatible = self._evaluate_input_compatible(
@@ -320,11 +302,11 @@ class ResearchSynthesizer:
         """Return current UTC time as ISO timestamp."""
         from datetime import datetime, timezone
 
-        return datetime.now(timezone.utc).isoformat()
+        return datetime.now(UTC).isoformat()
 
     def _extract_claims_with_references(
-        self, findings: "list", specialist: str
-    ) -> "list[dict[str, Any]]":
+        self, findings: list, specialist: str
+    ) -> list[dict[str, Any]]:
         """Extract original claims with their EvidenceReference lineage from findings.
 
         Each returned dict contains:
@@ -337,11 +319,7 @@ class ResearchSynthesizer:
 
         for finding in findings:
             # Get the original claim text
-            claim = (
-                getattr(finding, "claim", None)
-                or getattr(finding, "text", None)
-                or ""
-            )
+            claim = getattr(finding, "claim", None) or getattr(finding, "text", None) or ""
 
             if not claim:
                 continue
@@ -371,9 +349,8 @@ class ResearchSynthesizer:
 
             # Determine if this finding has complete claim-lineage preservation
             has_specialist = evidence_ref.original_specialist is not None
-            has_claim = (
-                evidence_ref.original_claim is not None
-                and bool(evidence_ref.original_claim.strip())
+            has_claim = evidence_ref.original_claim is not None and bool(
+                evidence_ref.original_claim.strip()
             )
 
             results.append(
@@ -381,8 +358,7 @@ class ResearchSynthesizer:
                     "original_claim": claim,
                     "original_specialist": specialist,
                     "evidence_reference": evidence_ref,
-                    "evidence_preserved_at_finding_level": has_specialist
-                    and has_claim,
+                    "evidence_preserved_at_finding_level": has_specialist and has_claim,
                 }
             )
 
@@ -390,9 +366,9 @@ class ResearchSynthesizer:
 
     def _identify_agreements_and_contradictions(
         self,
-        fundamentals_claims: "list[dict[str, Any]]",
-        industry_claims: "list[dict[str, Any]]",
-    ) -> "tuple[list[str], list[Any]]":
+        fundamentals_claims: list[dict[str, Any]],
+        industry_claims: list[dict[str, Any]],
+    ) -> tuple[list[str], list[Any]]:
         """Identify agreements and contradictions between specialist claims.
 
         Key: sharing a ticker or CIK is NOT evidence of agreement.
@@ -415,12 +391,10 @@ class ResearchSynthesizer:
         }
 
         # Find exact text matches as agreements
-        for claim_text, claim_data in fundamentals_claim_texts.items():
+        for claim_text, _claim_data in fundamentals_claim_texts.items():
             if claim_text in industry_claim_texts:
                 # Exact text match - record as agreement
-                agreements.append(
-                    f"Agreed claim: both specialists report '{claim_text[:80]}...'"
-                )
+                agreements.append(f"Agreed claim: both specialists report '{claim_text[:80]}...'")
 
         # Identify contradictions: claims that address the same topic but
         # have different wording or implications
@@ -451,11 +425,11 @@ class ResearchSynthesizer:
 
     def _build_synthesized_findings(
         self,
-        fundamentals_claims: "list[dict[str, Any]]",
-        industry_claims: "list[dict[str, Any]]",
-        agreements: "list[str]",
-        contradictions: "list[Any]",
-    ) -> "list[SynthesizedFinding]":
+        fundamentals_claims: list[dict[str, Any]],
+        industry_claims: list[dict[str, Any]],
+        agreements: list[str],
+        contradictions: list[Any],
+    ) -> list[SynthesizedFinding]:
         """Build synthesized findings from the contributor claims.
 
         Key requirements:
@@ -474,14 +448,11 @@ class ResearchSynthesizer:
             finding = SynthesizedFinding(
                 claim=claim_data["original_claim"],
                 category=self._classify_claim_category(claim_data["original_claim"]),
-                source_specialists=[
-                    claim_data["original_specialist"]
-                ],
+                source_specialists=[claim_data["original_specialist"]],
                 original_claims=[claim_data["original_claim"]],
                 evidence_references=[ref] if ref else [],
                 shared_evidence=(
-                    ref is not None
-                    and ref.original_specialist == claim_data["original_specialist"]
+                    ref is not None and ref.original_specialist == claim_data["original_specialist"]
                     if ref
                     else False
                 ),
@@ -502,8 +473,7 @@ class ResearchSynthesizer:
                 original_claims=[claim_data["original_claim"]],
                 evidence_references=[ref] if ref else [],
                 shared_evidence=(
-                    ref is not None
-                    and ref.original_specialist == claim_data["original_specialist"]
+                    ref is not None and ref.original_specialist == claim_data["original_specialist"]
                     if ref
                     else False
                 ),
@@ -529,9 +499,10 @@ class ResearchSynthesizer:
                 combined_refs.append(ic["evidence_reference"])
 
             # Find a unifying claim or create a synthesis summary
-            combined_claim_text = "; ".join(
-                c for c in combined_claims if c
-            )[:200] or "Combined findings from multiple specialists"
+            combined_claim_text = (
+                "; ".join(c for c in combined_claims if c)[:200]
+                or "Combined findings from multiple specialists"
+            )
 
             combined_ref = combined_refs[0] if combined_refs else None
 
@@ -539,9 +510,7 @@ class ResearchSynthesizer:
                 claim=combined_claim_text,
                 category="interpretation",
                 source_specialists=[
-                    c["original_specialist"]
-                    for c in fundamentals_claims
-                    + industry_claims
+                    c["original_specialist"] for c in fundamentals_claims + industry_claims
                 ],
                 original_claims=combined_claims,
                 evidence_references=combined_refs,
@@ -563,21 +532,13 @@ class ResearchSynthesizer:
         claim_lower = claim_text.lower().strip()
 
         # Simple heuristics for classification
-        if any(
-            word in claim_lower
-            for word in ["reported", "stated", "disclosed", "indicated"]
-        ):
+        if any(word in claim_lower for word in ["reported", "stated", "disclosed", "indicated"]):
             return "reported_fact"
-        if any(
-            word in claim_lower
-            for word in ["interpret", "suggest", "imply", "appear"]
-        ):
+        if any(word in claim_lower for word in ["interpret", "suggest", "imply", "appear"]):
             return "interpretation"
         return "reported_fact"  # default
 
-    def _determine_evidence_status(
-        self, evidence_ref: "Optional[EvidenceReference]"
-    ) -> str:
+    def _determine_evidence_status(self, evidence_ref: EvidenceReference | None) -> str:
         """Determine evidence status from EvidenceReference.
 
         Key: unsupported but traceable claims remain preserved.
@@ -588,11 +549,8 @@ class ResearchSynthesizer:
 
         # Check if we have the required lineage fields
         has_specialist = evidence_ref.original_specialist is not None
-        has_claim = (
-            evidence_ref.original_claim is not None
-            and bool(
-                evidence_ref.original_claim.strip()
-            )
+        has_claim = evidence_ref.original_claim is not None and bool(
+            evidence_ref.original_claim.strip()
         )
 
         if has_specialist and has_claim:
@@ -605,9 +563,7 @@ class ResearchSynthesizer:
             # No lineage
             return "evidence_missing"
 
-    def _determine_confidence(
-        self, evidence_ref: "Optional[EvidenceReference]"
-    ) -> "Optional[float]":
+    def _determine_confidence(self, evidence_ref: EvidenceReference | None) -> float | None:
         """Determine confidence value.
 
         Must be None unless evidence_status = supported_by_reference.
@@ -620,9 +576,7 @@ class ResearchSynthesizer:
         # unless there's explicit supported_by_reference status
         return None
 
-    def _extract_filing_refs(
-        self, evidence_ref: "Optional[EvidenceReference]"
-    ) -> "list[str]":
+    def _extract_filing_refs(self, evidence_ref: EvidenceReference | None) -> list[str]:
         """Extract filing references from an EvidenceReference."""
         refs = []
         if evidence_ref:
@@ -634,9 +588,7 @@ class ResearchSynthesizer:
                 refs.append(evidence_ref.filing_date)
         return refs
 
-    def _extract_all_filing_refs(
-        self, refs: "list[Optional[EvidenceReference]]"
-    ) -> "list[str]":
+    def _extract_all_filing_refs(self, refs: list[EvidenceReference | None]) -> list[str]:
         """Extract all filing references from a list of EvidenceReferences."""
         all_refs = []
         for ref in refs:
@@ -644,9 +596,7 @@ class ResearchSynthesizer:
                 all_refs.extend(self._extract_filing_refs(ref))
         return all_refs
 
-    def _check_shared_evidence(
-        self, combined_refs: "list[Optional[EvidenceReference]]"
-    ) -> bool:
+    def _check_shared_evidence(self, combined_refs: list[EvidenceReference | None]) -> bool:
         """Check if multiple EvidenceReferences share the same underlying evidence.
 
         Two references share evidence if they have matching source_url and/or
@@ -655,17 +605,13 @@ class ResearchSynthesizer:
         if len(combined_refs) < 2:
             return False
 
-        refs_with_meta = [
-            r for r in combined_refs if r and r.original_specialist is not None
-        ]
+        refs_with_meta = [r for r in combined_refs if r and r.original_specialist is not None]
 
         if len(refs_with_meta) < 2:
             return False
 
         # Check for matching source_url or accession_number
-        source_urls = [
-            r.source_url for r in refs_with_meta if r.source_url is not None
-        ]
+        source_urls = [r.source_url for r in refs_with_meta if r.source_url is not None]
         accession_nums = [
             r.accession_number for r in refs_with_meta if r.accession_number is not None
         ]
@@ -673,18 +619,15 @@ class ResearchSynthesizer:
         # If any two share the same source_url or accession_number, they share evidence
         if len(source_urls) != len(set(source_urls)):
             return True
-        if len(accession_nums) != len(set(accession_nums)):
-            return True
-
-        return False
+        return len(accession_nums) != len(set(accession_nums))
 
     def _identify_research_gaps(
         self,
-        fundamentals_claims: "list[dict[str, Any]]",
-        industry_claims: "list[dict[str, Any]]",
+        fundamentals_claims: list[dict[str, Any]],
+        industry_claims: list[dict[str, Any]],
         has_fundamentals: bool,
         has_industry: bool,
-    ) -> "list[str]":
+    ) -> list[str]:
         """Identify research gaps in the synthesis."""
         gaps = []
 
@@ -709,11 +652,11 @@ class ResearchSynthesizer:
 
     def _build_explicit_limitations(
         self,
-        fundamentals_claims: "list[dict[str, Any]]",
-        industry_claims: "list[dict[str, Any]]",
+        fundamentals_claims: list[dict[str, Any]],
+        industry_claims: list[dict[str, Any]],
         has_fundamentals: bool,
         has_industry: bool,
-    ) -> "Optional[str]":
+    ) -> str | None:
         """Build explicit limitations string for the synthesis result."""
         limitations_parts = []
 
@@ -726,9 +669,7 @@ class ResearchSynthesizer:
         missing_provenance = []
         for claim_data in fundamentals_claims + industry_claims:
             if not claim_data["evidence_preserved_at_finding_level"]:
-                missing_provenance.append(
-                    f"{claim_data['original_specialist']} claim"
-                )
+                missing_provenance.append(f"{claim_data['original_specialist']} claim")
 
         if missing_provenance:
             limitations_parts.append(
@@ -740,9 +681,7 @@ class ResearchSynthesizer:
 
         return ". ".join(limitations_parts) + "."
 
-    def _evaluate_evidence_preserved(
-        self, synthesized_findings: "list[SynthesizedFinding]"
-    ) -> bool:
+    def _evaluate_evidence_preserved(self, synthesized_findings: list[SynthesizedFinding]) -> bool:
         """Evaluate evidence_preserved field.
 
         True if every SynthesizedFinding with a non-None claim has at least one
@@ -782,8 +721,8 @@ class ResearchSynthesizer:
         self,
         has_fundamentals: bool,
         has_industry: bool,
-        company_ticker: "Optional[str]",
-        research_question: "Optional[str]",
+        company_ticker: str | None,
+        research_question: str | None,
     ) -> bool:
         """Evaluate input_compatible field.
 
@@ -801,7 +740,7 @@ class ResearchSynthesizer:
         the findings that could be synthesized from the provided reports.
         """
         # If either report is missing, input is not compatible
-        if not has_fundamentals or not has_industry:
+        if not has_fundamentals or not has_industry:  # noqa: SIM103
             return False
 
         # If we have both reports, check ticker matching
@@ -813,8 +752,8 @@ class ResearchSynthesizer:
 
     def _evaluate_synthesis_complete(
         self,
-        synthesized_findings: "list[SynthesizedFinding]",
-        research_gaps: "list[str]",
+        synthesized_findings: list[SynthesizedFinding],
+        research_gaps: list[str],
         has_fundamentals: bool,
         has_industry: bool,
     ) -> bool:
@@ -842,16 +781,12 @@ class ResearchSynthesizer:
         if synthesized_findings:
             # Check if any findings have non-empty claims
             has_claims = any(
-                f.claim is not None and bool(f.claim.strip())
-                for f in synthesized_findings
+                f.claim is not None and bool(f.claim.strip()) for f in synthesized_findings
             )
             if has_claims:
                 # Check if research gaps are manageable (not complete coverage failures)
-                critical_gaps = [
-                    g for g in research_gaps if "No" in g and "provided" in g
-                ]
-                if critical_gaps and len(critical_gaps) >= 2:
-                    # Both reports missing - not complete
+                critical_gaps = [g for g in research_gaps if "No" in g and "provided" in g]
+                if critical_gaps:  # noqa: SIM103
                     return False
                 # One report missing but some synthesis possible
                 return True
@@ -859,9 +794,7 @@ class ResearchSynthesizer:
         # No findings with claims but reports exist - check research gaps
         if research_gaps and len(research_gaps) > 0:
             # Gaps document evidence deficits
-            critical = sum(
-                1 for g in research_gaps if "No" in g and "provided" in g
-            )
+            critical = sum(1 for g in research_gaps if "No" in g and "provided" in g)
             if critical >= 1:
                 return False
 
@@ -869,8 +802,8 @@ class ResearchSynthesizer:
 
     def _evaluate_source_provenance_present(
         self,
-        fundamentals_claims: "list[dict[str, Any]]",
-        industry_claims: "list[dict[str, Any]]",
+        fundamentals_claims: list[dict[str, Any]],
+        industry_claims: list[dict[str, Any]],
     ) -> bool:
         """Evaluate source_provenance_present field.
 
@@ -902,10 +835,59 @@ class ResearchSynthesizer:
 
         return False
 
+    def _evaluate_source_provenance_present(
+        self,
+        fundamentals_claims: list[dict[str, Any]],
+        industry_claims: list[dict[str, Any]],
+    ) -> bool:
+        """Evaluate source_provenance_present field.
+
+        At least one source-related field is populated across all EvidenceReferences.
+        """
+        all_refs = []
+        for claim_data in fundamentals_claims + industry_claims:
+            ref = claim_data["evidence_reference"]
+            if ref is not None:
+                all_refs.append(ref)
+
+        if not all_refs:
+            # No EvidenceReferences at all
+            return False
+
+        # Check if at least one reference has some source-related field populated
+        for ref in all_refs:
+            if (
+                ref.original_specialist is not None
+                or ref.original_claim is not None
+                or ref.evidence_text is not None
+                or ref.source_url is not None
+                or ref.filing_type is not None
+                or ref.filing_date is not None
+                or ref.accession_number is not None
+                or ref.filing_section is not None
+            ):
+                return True
+
+        return False
+        for ref in all_refs:
+            if (
+                ref.original_specialist is not None
+                or ref.original_claim is not None
+                or ref.evidence_text is not None
+                or ref.source_url is not None
+                or ref.filing_type is not None
+                or ref.filing_date is not None
+                or ref.accession_number is not None
+                or ref.filing_section is not None
+            ):
+                return True
+
+        return False
+
     def _evaluate_source_provenance_complete(
         self,
-        fundamentals_claims: "list[dict[str, Any]]",
-        industry_claims: "list[dict[str, Any]]",
+        fundamentals_claims: list[dict[str, Any]],
+        industry_claims: list[dict[str, Any]],
     ) -> bool:
         """Evaluate source_provenance_complete field.
 
@@ -929,10 +911,7 @@ class ResearchSynthesizer:
         # And ideally both specialist claims have complete references
         references_with_locators = 0
         for ref in all_refs:
-            has_locator = (
-                ref.accession_number is not None
-                or ref.source_url is not None
-            )
+            has_locator = ref.accession_number is not None or ref.source_url is not None
             if has_locator:
                 references_with_locators += 1
 
@@ -940,8 +919,7 @@ class ResearchSynthesizer:
         total_with_claims = sum(
             1
             for ref in all_refs
-            if ref.original_claim is not None
-            and bool(ref.original_claim.strip())
+            if ref.original_claim is not None and bool(ref.original_claim.strip())
         )
 
         if total_with_claims == 0:
@@ -949,7 +927,4 @@ class ResearchSynthesizer:
 
         # Complete if references with locators >= references with claims * 0.7
         # (allow some references to have partial metadata)
-        if references_with_locators >= total_with_claims * 0.7:
-            return True
-
-        return False
+        return references_with_locators >= total_with_claims * 0.7

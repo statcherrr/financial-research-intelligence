@@ -6,13 +6,12 @@ preserving all five canonical semantic fields, evidence lineage,
 and verification outcomes.
 """
 
-import sys
 import os
+import sys
 
 # Add the project to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from fris.agents import FundamentalsAnalyst, IndustryAnalyst
 from fris.orchestration.orchestrator import ResearchOrchestrator
 from fris.reports.research_report import ResearchReport, ResearchReportBuilder
 
@@ -38,7 +37,7 @@ def test_report_builder_with_compatible_reports():
 
     # Verify report metadata
     assert report.report_metadata.company_ticker == "AAPL"
-    assert report.report_metadata.research_question is not ""
+    assert report.report_metadata.research_question != ""
     assert len(report.report_metadata.generation_timestamp) > 0
 
     # Verify executive summary
@@ -47,11 +46,11 @@ def test_report_builder_with_compatible_reports():
 
     # Verify fundamentals analysis
     assert report.fundamentals_analysis is not None
-    assert report.fundamentals_analysis.specialist_findings is not ""
+    assert report.fundamentals_analysis.specialist_findings != ""
 
     # Verify industry analysis
     assert report.industry_analysis is not None
-    assert report.industry_analysis.specialist_findings is not ""
+    assert report.industry_analysis.specialist_findings != ""
 
     # Verify synthesized findings
     assert report.synthesized_findings is not None
@@ -67,7 +66,7 @@ def test_report_builder_with_compatible_reports():
 
     # Verify overall limitations
     assert report.overall_limitations is not None
-    assert report.overall_limitations.overall_limitations_text is not ""
+    assert report.overall_limitations.overall_limitations_text != ""
 
     # Verify research quality metadata (five canonical fields)
     assert report.research_quality_metadata is not None
@@ -116,7 +115,9 @@ def test_report_builder_with_missing_reports():
     # found=False but a finding is synthesized with unverified evidence status
     assert len(report.synthesized_findings) == 1
     assert report.synthesized_findings[0].evidence_status == "unverified"
-    assert report.synthesized_findings[0].claim == "Analysis performed using available filing evidence"
+    assert (
+        report.synthesized_findings[0].claim == "Analysis performed using available filing evidence"
+    )
 
     # Evidence citations are empty when retrieval is blocked (offline mode)
     # This is correct - no HTTP requests were made
@@ -182,11 +183,13 @@ def test_report_preserves_semantic_fields_independence():
     assert result.source_provenance_complete is not None
 
     print("  PASSED: Five semantic fields preserved and independent")
-    print(f"  Fields: evidence_preserved={meta['evidence_preserved']}, "
-          f"input_compatible={meta['input_compatible']}, "
-          f"synthesis_complete={meta['synthesis_complete']}, "
-          f"source_provenance_present={meta['source_provenance_present']}, "
-          f"source_provenance_complete={meta['source_provenance_complete']}")
+    print(
+        f"  Fields: evidence_preserved={meta['evidence_preserved']}, "
+        f"input_compatible={meta['input_compatible']}, "
+        f"synthesis_complete={meta['synthesis_complete']}, "
+        f"source_provenance_present={meta['source_provenance_present']}, "
+        f"source_provenance_complete={meta['source_provenance_complete']}"
+    )
     return True
 
 
@@ -249,18 +252,20 @@ def test_report_pipeline_immutability():
 
     # Build report - should not mutate orchestrator
     builder = ResearchReportBuilder(result)
-    report = builder.build()
+    builder.build()
 
     # Check orchestrator result was not mutated
-    assert result.evidence_preserved == original_evidence_preserved, \
+    assert result.evidence_preserved == original_evidence_preserved, (
         "Pipeline result evidence_preserved was mutated!"
+    )
 
     # Check synthesis result was not mutated
     new_synth = result.synthesis_result
     if original_synth_result is not None:
         # Key fields should be preserved
-        assert original_synth_result.evidence_preserved == new_synth.evidence_preserved, \
+        assert original_synth_result.evidence_preserved == new_synth.evidence_preserved, (
             "Synthesis evidence_preserved was mutated!"
+        )
 
     print("  PASSED: Report builder preserves orchestrator result immutability")
     return True
@@ -285,11 +290,12 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"  FAILED: {e}")
             import traceback
+
             traceback.print_exc()
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"Results: {success_count}/{total_tests} tests passed")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     if success_count == total_tests:
         print("All Milestone 6.4 integration tests PASSED ✅")

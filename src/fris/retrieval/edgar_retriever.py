@@ -11,12 +11,11 @@ without duplicating HTTP client, rate limiter, or filing extraction logic.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 from fris.data.edgar import EdgarClient
-from fris.data.edgar_ingestion import extract_sections_from_filing, _ITEMS_OF_INTEREST
 from fris.verification.citation_verifier import EvidenceReference
 
 
@@ -64,8 +63,8 @@ class EdgarRetriever:
 
     def retrieve(
         self,
-        evidence_references: "list[EvidenceReference]",
-    ) -> "EdgarRetrievalResult":
+        evidence_references: list[EvidenceReference],
+    ) -> EdgarRetrievalResult:
         """Retrieve evidence for a list of EvidenceReferences.
 
         For each EvidenceReference with available source locators (accession_number
@@ -81,8 +80,8 @@ class EdgarRetriever:
             copies. Original EvidenceReference objects are never mutated.
         """
         enriched = []
-        retrieval_statuses: "list[str]" = []
-        evidence_sources: "list[str]" = []
+        retrieval_statuses: list[str] = []
+        evidence_sources: list[str] = []
 
         for ref in evidence_references:
             result = self._retrieve_single(ref)
@@ -92,9 +91,7 @@ class EdgarRetriever:
 
         # Determine overall retrieval status
         overall_status = self._compute_overall_status(retrieval_statuses)
-        overall_evidence_source = self._compute_overall_evidence_source(
-            evidence_sources
-        )
+        overall_evidence_source = self._compute_overall_evidence_source(evidence_sources)
 
         return EdgarRetrievalResult(
             enriched_evidence_references=enriched,
@@ -103,15 +100,17 @@ class EdgarRetriever:
             # Track which original references had which statuses
             per_reference_statuses=dict(
                 zip(
-                    [ref.original_claim[:50] if ref.original_claim else "unknown" for ref in evidence_references],
+                    [
+                        ref.original_claim[:50] if ref.original_claim else "unknown"
+                        for ref in evidence_references
+                    ],
                     retrieval_statuses,
+                    strict=False,
                 )
             ),
         )
 
-    def _retrieve_single(
-        self, ref: EvidenceReference
-    ) -> "_RetrieveResult":
+    def _retrieve_single(self, ref: EvidenceReference) -> _RetrieveResult:
         """Retrieve evidence for a single EvidenceReference.
 
         Returns a _RetrieveResult with the enriched copy and status information.
@@ -134,9 +133,7 @@ class EdgarRetriever:
         evidence_source = "none"
 
         # Check if we have eligible source locators
-        has_locator = bool(
-            ref.accession_number is not None or ref.source_url is not None
-        )
+        has_locator = bool(ref.accession_number is not None or ref.source_url is not None)
 
         if not has_locator:
             # No source locator available — cannot retrieve
@@ -186,9 +183,7 @@ class EdgarRetriever:
 
             # Run the lookup (this is a synchronous wrapper; in production would be async)
             # For the retriever, we simulate what the client would do
-            filing_result = self._attempt_filing_retrieval(
-                normalized_acc, cik_query
-            )
+            filing_result = self._attempt_filing_retrieval(normalized_acc, cik_query)
 
             if filing_result["success"]:
                 # Successful retrieval — extract sections
@@ -253,10 +248,7 @@ class EdgarRetriever:
                 f"{digits_only[13:17]}-{digits_only[17:19]}-{digits_only[19:]}"
             )
         if len(digits_only) == 18:
-            return (
-                f"{digits_only[:9]}-{digits_only[9:13]}-"
-                f"{digits_only[13:18]}-0{digits_only[18:]}"
-            )
+            return f"{digits_only[:9]}-{digits_only[9:13]}-{digits_only[13:18]}-0{digits_only[18:]}"
         return accession
 
     def _attempt_filing_retrieval(
@@ -278,9 +270,7 @@ class EdgarRetriever:
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                result = loop.run_until_complete(
-                    client.lookup_cik(cik_query)
-                )
+                result = loop.run_until_complete(client.lookup_cik(cik_query))
                 loop.close()
                 cik = result.get("cik")
             except Exception:
@@ -290,10 +280,10 @@ class EdgarRetriever:
             # Construct the accession URL
             acc_url = (
                 f"https://www.sec.gov/cgi-bin/browse-edgar?"
-                f"action=getcompany&CIK={cik or ''}&type={ accession or '10-K'}&date=&count=10"
+                f"action=getcompany&CIK={cik or ''}&type={accession or '10-K'}&date=&count=10"
                 if cik
                 else "https://www.sec.gov/cgi-bin/browse-edgar?"
-                f"action=getcompany&CIK=&type=&date=&count=10"
+                "action=getcompany&CIK=&type=&date=&count=10"
             )
 
             # Make the HTTP request
@@ -333,15 +323,12 @@ class EdgarRetriever:
 
                     # Simple extraction: look for 10-K, 10-Q patterns
                     import re
-                    form_match = re.search(
-                        r'formType=["\'](10-K|10-Q|8-K)["\']', filing_text
-                    )
+
+                    form_match = re.search(r'formType=["\'](10-K|10-Q|8-K)["\']', filing_text)
                     if form_match:
                         form_type = form_match.group(1)
 
-                    date_match = re.search(
-                        r'filingDate=["\'](\d{4}-\d{2}-\d{2})["\']', filing_text
-                    )
+                    date_match = re.search(r'filingDate=["\'](\d{4}-\d{2}-\d{2})["\']', filing_text)
                     if date_match:
                         filing_date = date_match.group(1)
 
@@ -394,9 +381,7 @@ class EdgarRetriever:
                 "source_url": None,
             }
 
-    def _extract_sections(
-        self, filing_text: Optional[str], section: Optional[str]
-    ) -> Optional[str]:
+    def _extract_sections(self, filing_text: str | None, section: str | None) -> str | None:
         """Extract a specific section from filing text.
 
         Uses the existing edgar_ingestion extraction logic as a best-effort
@@ -418,7 +403,7 @@ class EdgarRetriever:
             "8": "Financial Statements and Supplementary Data",
         }
 
-        title = item_to_title.get(section_lower, section)
+        item_to_title.get(section_lower, section)
 
         # Best-effort regex extraction: find the section item number and title
         # Pattern: "1. Business" or "Item 1:" followed by section text
@@ -438,13 +423,8 @@ class EdgarRetriever:
                 # Find a reasonable end boundary (next item number or major section)
                 remaining = filing_text[start + 100 : start + 3000]
                 # Look for the next item number pattern
-                next_item_match = re.search(
-                    r"\b\d+(\.\d+)?\s+[A-Z]?\s*[:\.\s]", remaining
-                )
-                if next_item_match:
-                    end = start + 100 + next_item_match.start()
-                else:
-                    end = start + 3000
+                next_item_match = re.search(r"\b\d+(\.\d+)?\s+[A-Z]?\s*[:\.\s]", remaining)
+                end = start + 100 + next_item_match.start() if next_item_match else start + 3000
 
                 extracted = filing_text[start:end]
                 # Clean up the prefix
@@ -463,7 +443,7 @@ class EdgarRetriever:
         # Fallback: just return the first 2000 chars after the section number
         return None
 
-    def _compute_overall_status(self, statuses: "list[str]") -> str:
+    def _compute_overall_status(self, statuses: list[str]) -> str:
         """Compute overall retrieval status from per-reference statuses."""
         if not statuses:
             return "skipped"
@@ -472,11 +452,7 @@ class EdgarRetriever:
         failed = statuses.count("failed")
         successful = statuses.count("successful")
         skipped = statuses.count("skipped")
-        attempted = sum(
-            1
-            for s in statuses
-            if s in ("successful", "failed", "blocked")
-        )
+        attempted = sum(1 for s in statuses if s in ("successful", "failed", "blocked"))
 
         if blocked > 0 and blocked == len(statuses):
             return "blocked"
@@ -495,16 +471,14 @@ class EdgarRetriever:
             return "failed"
         return "skipped"
 
-    def _compute_overall_evidence_source(
-        self, sources: "list[str]"
-    ) -> str:
+    def _compute_overall_evidence_source(self, sources: list[str]) -> str:
         """Compute overall evidence source from per-reference sources."""
         if not sources:
             return "none"
 
         supplied = sources.count("supplied")
         retrieved = sources.count("retrieved")
-        supplied_and_retrieved = sources.count("supplied_and_retrieved")
+        sources.count("supplied_and_retrieved")
         none_count = sources.count("none")
 
         if none_count == len(sources):
@@ -522,6 +496,7 @@ class EdgarRetriever:
 # Internal helper types
 # ---------------------------------------------------------------------------
 
+
 class _RetrieveResult:
     """Internal result from a single-reference retrieval attempt."""
 
@@ -530,7 +505,7 @@ class _RetrieveResult:
         enriched_ref: EvidenceReference,
         retrieval_status: str,
         evidence_source: str,
-        filing_extracted: Optional[dict[str, Any]],
+        filing_extracted: dict[str, Any] | None,
     ) -> None:
         self.enriched_ref = enriched_ref
         self.retrieval_status = retrieval_status
@@ -551,26 +526,24 @@ class EdgarRetrievalResult(BaseModel):
 
     model_config = {"arbitrary_types_allowed": True}
 
-    enriched_evidence_references: "list[EvidenceReference]" = Field(
+    enriched_evidence_references: list[EvidenceReference] = Field(
         ...,
         description="Enriched EvidenceReference copies with retrieved evidence text "
         "and metadata added. Original objects are unchanged.",
     )
     retrieval_status: str = Field(
         ...,
-        description="Overall retrieval status: skipped, successful, failed, blocked, "
-        "or partial",
+        description="Overall retrieval status: skipped, successful, failed, blocked, or partial",
     )
     evidence_source: str = Field(
         ...,
-        description="Overall evidence source: supplied, retrieved, "
-        "supplied_and_retrieved, or none",
+        description="Overall evidence source: supplied, retrieved, supplied_and_retrieved, or none",
     )
-    per_reference_statuses: "dict[str, str]" = Field(
+    per_reference_statuses: dict[str, str] = Field(
         default_factory=dict,
         description="Mapping from claim excerpt to retrieval status per reference",
     )
-    filing_summaries: "list[dict[str, Any]]" = Field(
+    filing_summaries: list[dict[str, Any]] = Field(
         default_factory=list,
         description="Summaries of any filings that were successfully retrieved",
     )

@@ -11,15 +11,19 @@ or orchestrator. Architecturally independent enough to make the comparison meani
 
 from __future__ import annotations
 
-import time
 import json
-from typing import Any, Optional, List, Dict
+import time
+from typing import Any
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field
 
-from fris.llms.protocol import ChatMessage, ChatCompletionRequest, ChatCompletionResponse, InferenceClient
 from fris.evaluation.config import ExperimentConfig, ExperimentResult
-from fris.evaluation.metrics import TrialMetric
+from fris.llms.protocol import (
+    ChatCompletionRequest,
+    ChatCompletionResponse,
+    ChatMessage,
+    InferenceClient,
+)
 
 
 class SingleAgentBaseline(BaseModel):
@@ -36,11 +40,11 @@ class SingleAgentBaseline(BaseModel):
     )
     model: str = Field(default="claude-sonnet-4-20250514", description="LLM model name")
     temperature: float = Field(0.0, description="Sampling temperature")
-    max_tokens: Optional[int] = Field(None, description="Maximum tokens to generate")
+    max_tokens: int | None = Field(None, description="Maximum tokens to generate")
 
     # Internal state tracking (Pydantic v2)
     _call_count: int = 0
-    _total_tokens: Optional[int] = None
+    _total_tokens: int | None = None
 
     async def achat(self, request: ChatCompletionRequest) -> ChatCompletionResponse:
         """Send a chat completion request through the client."""
@@ -49,7 +53,7 @@ class SingleAgentBaseline(BaseModel):
         self._call_count += 1
         start = time.time()
         response = await self.client.achat(request)
-        elapsed = time.time() - start
+        time.time() - start
         # Track token usage from response
         if hasattr(response, "usage") and response.usage:
             # Use PrivateAttr properly via model
@@ -104,7 +108,7 @@ class SingleAgentBaseline(BaseModel):
                 content = choice.content
 
         # Parse the structured research output
-        research_output = self._parse_research_output(content, config)
+        self._parse_research_output(content, config)
 
         # Build experiment timestamps - handle start_timestamp from config or generate from start_time
         if config.start_timestamp:
@@ -112,6 +116,7 @@ class SingleAgentBaseline(BaseModel):
         else:
             # Convert start_time float to ISO format string
             from datetime import datetime
+
             start_timestamp = datetime.fromtimestamp(end_time_float).isoformat()
         # Convert end time float to ISO format string
         end_timestamp = datetime.fromtimestamp(end_time_float).isoformat()
@@ -129,7 +134,9 @@ class SingleAgentBaseline(BaseModel):
             efficiency_metrics={},
             retrieval_status="none",  # Single agent doesn't do EDGAR retrieval
             verification_outcome="unverifiable",
-            execution_notes=self._build_execution_notes(config, content, end_time_float - start_time),
+            execution_notes=self._build_execution_notes(
+                config, content, end_time_float - start_time
+            ),
         )
 
         # Populate token and cost data if available
@@ -141,7 +148,10 @@ class SingleAgentBaseline(BaseModel):
                 "total": getattr(usage_data, "total_tokens", 0) or 0,
             }
             # Estimate cost if token counts available
-            if usage_data.get("prompt_tokens") is not None and usage_data.get("completion_tokens") is not None:
+            if (
+                usage_data.get("prompt_tokens") is not None
+                and usage_data.get("completion_tokens") is not None
+            ):
                 estimated = (usage_data["prompt_tokens"] * 0.003 / 1000) + (
                     usage_data["completion_tokens"] * 0.015 / 1000
                 )
@@ -186,13 +196,21 @@ distinguish between established facts, interpretations, and uncertainties.
 Do not fabricate financial figures, citations, or conclusions. Clearly state
 limitations and uncertainties. If evidence is insufficient, mark claims as unverifiable."""
 
-    def _parse_research_output(self, content: str, config: ExperimentConfig) -> Dict[str, Any]:
+    def _parse_research_output(self, content: str, config: ExperimentConfig) -> dict[str, Any]:
         """Parse the LLM research output into structured data."""
         try:
             # Try to parse as JSON
             parsed = json.loads(content)
             # Validate required fields exist
-            required = ["summary", "risks", "opportunities", "evidence", "contradictions", "uncertainties", "citation_verification"]
+            required = [
+                "summary",
+                "risks",
+                "opportunities",
+                "evidence",
+                "contradictions",
+                "uncertainties",
+                "citation_verification",
+            ]
             for field in required:
                 if field not in parsed:
                     raise ValueError(f"Missing field: {field}")
@@ -200,6 +218,7 @@ limitations and uncertainties. If evidence is insufficient, mark claims as unver
         except (json.JSONDecodeError, ValueError) as e:
             # Return raw content if parsing fails
             import traceback
+
             traceback.print_exc()
             return {
                 "summary": content[:200] if content else "",
@@ -232,7 +251,9 @@ class SingleAgentPipeline:
     """Pipeline wrapper for the single-agent baseline."""
 
     baseline: SingleAgentBaseline = Field(default_factory=SingleAgentBaseline)
-    allow_network: bool = Field(default=False, description="Allow network access (ignored for baseline)")
+    allow_network: bool = Field(
+        default=False, description="Allow network access (ignored for baseline)"
+    )
 
     async def run_trial(self, config: ExperimentConfig) -> ExperimentResult:
         """Run a single trial of the baseline research system."""

@@ -23,23 +23,21 @@ class AnalysisFinding(BaseModel):
         ..., description="Type of finding: reported_fact, interpretation, or unknown."
     )
     claim: str = Field(..., description="The claim or assertion being made")
-    limitations: Optional[str] = Field(
+    limitations: str | None = Field(
         default=None, description="Explicit limitations on this finding"
     )
-    evidence: Optional[str] = Field(default=None, description="Supporting text from SEC filing")
-    finding_type: Optional[str] = Field(default=None, description="Type of finding")
-    source_url: Optional[str] = Field(
+    evidence: str | None = Field(default=None, description="Supporting text from SEC filing")
+    finding_type: str | None = Field(default=None, description="Type of finding")
+    source_url: str | None = Field(
         default=None, description="SEC URL where the evidence was sourced"
     )
-    filing_type: Optional[str] = Field(default=None, description="Form type: 10-K, 10-Q, 8-K")
-    filing_date: Optional[str] = Field(default=None, description="ISO filing date")
-    accession_number: Optional[str] = Field(default=None, description="SEC accession number")
-    section: Optional[str] = Field(default=None, description="SEC item number (1, 1A, 7, etc.)")
+    filing_type: str | None = Field(default=None, description="Form type: 10-K, 10-Q, 8-K")
+    filing_date: str | None = Field(default=None, description="ISO filing date")
+    accession_number: str | None = Field(default=None, description="SEC accession number")
+    section: str | None = Field(default=None, description="SEC item number (1, 1A, 7, etc.)")
     confidence: float | None = Field(
         default=None, description="LLM-assigned confidence (0.0 to 1.0)"
     )
-
-
 
 
 class ResearchReport(BaseModel):
@@ -172,4 +170,6 @@ class FundamentalsAnalyst:
             evidence_preserved=ticker_found,
             report_timestamp=date.today().isoformat(),
         )
+
+
 AnalysisFinding.model_rebuild()

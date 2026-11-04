@@ -11,7 +11,7 @@ responses (for testing and offline mode).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -31,8 +31,8 @@ class ChatCompletionRequest(BaseModel):
     messages: list[ChatMessage] = Field(..., description="The conversation messages")
     model: str = Field(description="The LLM model to use")
     temperature: float = Field(0.0, description="Sampling temperature (0.0 to 1.0)")
-    max_tokens: Optional[int] = Field(None, description="Maximum number of tokens to generate")
-    system_prompt: Optional[str] = Field(None, description="Optional system prompt to prepend")
+    max_tokens: int | None = Field(None, description="Maximum number of tokens to generate")
+    system_prompt: str | None = Field(None, description="Optional system prompt to prepend")
     extra: dict[str, Any] = Field(default_factory=dict, description="Extra parameters for the API")
 
 
@@ -42,9 +42,9 @@ class ChatCompletionResponse(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
     choices: list[dict[str, Any]] = Field(..., description="The response choices")
-    usage: Optional[dict[str, Any]] = Field(None, description="Token usage information")
-    id: Optional[str] = Field(None, description="Request ID")
-    object: Optional[str] = Field(None, description="Object type identifier")
+    usage: dict[str, Any] | None = Field(None, description="Token usage information")
+    id: str | None = Field(None, description="Request ID")
+    object: str | None = Field(None, description="Object type identifier")
 
 
 class InferenceClient(ABC):
